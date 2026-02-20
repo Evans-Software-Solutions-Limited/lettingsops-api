@@ -8,14 +8,25 @@ function mockChain<T>(result: T) {
   const chain: Record<string, unknown> = {};
   const promise = Promise.resolve(result);
 
-  for (const method of ["values", "set", "from", "where", "limit", "offset", "orderBy"]) {
+  for (const method of [
+    "values",
+    "set",
+    "from",
+    "where",
+    "limit",
+    "offset",
+    "orderBy",
+  ]) {
     chain[method] = () => chain;
   }
 
   chain["returning"] = () => promise;
-  chain["then"] = (resolve: Parameters<Promise<T>["then"]>[0], reject?: Parameters<Promise<T>["then"]>[1]) =>
-    promise.then(resolve, reject);
-  chain["catch"] = (reject: Parameters<Promise<T>["catch"]>[0]) => promise.catch(reject);
+  chain["then"] = (
+    resolve: Parameters<Promise<T>["then"]>[0],
+    reject?: Parameters<Promise<T>["then"]>[1],
+  ) => promise.then(resolve, reject);
+  chain["catch"] = (reject: Parameters<Promise<T>["catch"]>[0]) =>
+    promise.catch(reject);
 
   return chain;
 }
@@ -75,9 +86,16 @@ describe("QualificationRepository", () => {
     });
 
     it("throws if no row is returned", async () => {
-      (mockDb.insert as ReturnType<typeof vi.fn>).mockReturnValue(mockChain([]));
+      (mockDb.insert as ReturnType<typeof vi.fn>).mockReturnValue(
+        mockChain([]),
+      );
       await expect(
-        repo.create({ leadId: "x", answers: mockAnswers, score: 0, category: "LOW" }),
+        repo.create({
+          leadId: "x",
+          answers: mockAnswers,
+          score: 0,
+          category: "LOW",
+        }),
       ).rejects.toThrow("Failed to create qualification");
     });
   });
@@ -90,7 +108,9 @@ describe("QualificationRepository", () => {
     });
 
     it("returns null when not found", async () => {
-      (mockDb.select as ReturnType<typeof vi.fn>).mockReturnValue(mockChain([]));
+      (mockDb.select as ReturnType<typeof vi.fn>).mockReturnValue(
+        mockChain([]),
+      );
       const qual = await repo.findByLeadId("no-lead");
       expect(qual).toBeNull();
     });

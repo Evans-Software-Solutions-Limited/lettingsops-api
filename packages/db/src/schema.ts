@@ -49,8 +49,12 @@ export const leads = pgTable("leads", {
   score: integer("score"),
   scoreCategory: scoreCategoryEnum("score_category"),
   metadata: jsonb("metadata").$type<Record<string, unknown>>(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 
 // ─── Qualifications ───────────────────────────────────────────────────────────
@@ -63,7 +67,9 @@ export const qualifications = pgTable("qualifications", {
   answers: jsonb("answers").notNull().$type<Record<string, unknown>>(),
   score: integer("score").notNull(),
   category: scoreCategoryEnum("category").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 
 // ─── Viewings ─────────────────────────────────────────────────────────────────
@@ -78,7 +84,9 @@ export const viewings = pgTable("viewings", {
   calendarEventId: text("calendar_event_id"),
   confirmedAt: timestamp("confirmed_at", { withTimezone: true }).notNull(),
   cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 
 // ─── Communication Logs ───────────────────────────────────────────────────────
@@ -93,7 +101,9 @@ export const communicationLogs = pgTable("communication_logs", {
   subject: text("subject"),
   body: text("body"),
   receivedAt: timestamp("received_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 
 // ─── Audit Logs ───────────────────────────────────────────────────────────────
@@ -104,7 +114,9 @@ export const auditLogs = pgTable("audit_logs", {
   entityId: uuid("entity_id").notNull(),
   action: text("action").notNull(), // "created" | "status_changed" | "scored" | "cancelled"
   payload: jsonb("payload").$type<Record<string, unknown>>(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 
 // ─── Types (inferred from schema) ─────────────────────────────────────────────

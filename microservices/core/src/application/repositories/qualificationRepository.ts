@@ -46,7 +46,9 @@ export type CreateQualificationInput = {
   category: ScoreCategory;
 };
 
-function rowToQualification(row: typeof qualifications.$inferSelect): Qualification {
+function rowToQualification(
+  row: typeof qualifications.$inferSelect,
+): Qualification {
   return {
     id: row.id,
     leadId: row.leadId,
@@ -77,7 +79,8 @@ export class QualificationRepository {
       })
       .returning();
 
-    if (!row) throw new Error("Failed to create qualification — no row returned");
+    if (!row)
+      throw new Error("Failed to create qualification — no row returned");
     return rowToQualification(row);
   }
 

@@ -13,7 +13,9 @@ import * as schema from "./schema";
 export function createDb(databaseUrl?: string) {
   const url = databaseUrl ?? process.env.DATABASE_URL;
   if (!url) {
-    throw new Error("DATABASE_URL is not set. Set it via: sst secret set DATABASE_URL <url>");
+    throw new Error(
+      "DATABASE_URL is not set. Set it via: sst secret set DATABASE_URL <url>",
+    );
   }
   const sql = neon(url);
   return drizzle(sql, { schema });

@@ -15,8 +15,15 @@ function mockChain<T>(result: T) {
   const promise = Promise.resolve(result);
 
   const fluent = [
-    "values", "set", "from", "where", "limit",
-    "offset", "orderBy", "leftJoin", "innerJoin",
+    "values",
+    "set",
+    "from",
+    "where",
+    "limit",
+    "offset",
+    "orderBy",
+    "leftJoin",
+    "innerJoin",
   ];
 
   for (const method of fluent) {
@@ -24,9 +31,12 @@ function mockChain<T>(result: T) {
   }
 
   chain["returning"] = () => promise;
-  chain["then"] = (resolve: Parameters<Promise<T>["then"]>[0], reject?: Parameters<Promise<T>["then"]>[1]) =>
-    promise.then(resolve, reject);
-  chain["catch"] = (reject: Parameters<Promise<T>["catch"]>[0]) => promise.catch(reject);
+  chain["then"] = (
+    resolve: Parameters<Promise<T>["then"]>[0],
+    reject?: Parameters<Promise<T>["then"]>[1],
+  ) => promise.then(resolve, reject);
+  chain["catch"] = (reject: Parameters<Promise<T>["catch"]>[0]) =>
+    promise.catch(reject);
 
   return chain;
 }
@@ -90,10 +100,17 @@ describe("LeadRepository", () => {
     });
 
     it("throws if no row is returned", async () => {
-      (mockDb.insert as ReturnType<typeof vi.fn>).mockReturnValue(mockChain([]));
+      (mockDb.insert as ReturnType<typeof vi.fn>).mockReturnValue(
+        mockChain([]),
+      );
 
       await expect(
-        repo.create({ name: "X", email: "x@x.com", source: "manual", status: "NEW" }),
+        repo.create({
+          name: "X",
+          email: "x@x.com",
+          source: "manual",
+          status: "NEW",
+        }),
       ).rejects.toThrow("Failed to create lead");
     });
   });
@@ -108,7 +125,9 @@ describe("LeadRepository", () => {
     });
 
     it("returns null when not found", async () => {
-      (mockDb.select as ReturnType<typeof vi.fn>).mockReturnValue(mockChain([]));
+      (mockDb.select as ReturnType<typeof vi.fn>).mockReturnValue(
+        mockChain([]),
+      );
       const lead = await repo.findById("nonexistent");
       expect(lead).toBeNull();
     });
@@ -123,7 +142,9 @@ describe("LeadRepository", () => {
     });
 
     it("returns null when not found", async () => {
-      (mockDb.select as ReturnType<typeof vi.fn>).mockReturnValue(mockChain([]));
+      (mockDb.select as ReturnType<typeof vi.fn>).mockReturnValue(
+        mockChain([]),
+      );
       const lead = await repo.findByEmail("nobody@example.com");
       expect(lead).toBeNull();
     });
@@ -144,7 +165,9 @@ describe("LeadRepository", () => {
     });
 
     it("returns null when messageId has no matching log", async () => {
-      (mockDb.select as ReturnType<typeof vi.fn>).mockReturnValue(mockChain([]));
+      (mockDb.select as ReturnType<typeof vi.fn>).mockReturnValue(
+        mockChain([]),
+      );
       const lead = await repo.findByMessageId("nonexistent-msg");
       expect(lead).toBeNull();
     });
@@ -155,8 +178,8 @@ describe("LeadRepository", () => {
   describe("list", () => {
     it("returns paginated results with total count", async () => {
       (mockDb.select as ReturnType<typeof vi.fn>)
-        .mockReturnValueOnce(mockChain([mockLeadRow]))          // rows
-        .mockReturnValueOnce(mockChain([{ count: "3" }]));       // count
+        .mockReturnValueOnce(mockChain([mockLeadRow])) // rows
+        .mockReturnValueOnce(mockChain([{ count: "3" }])); // count
 
       const result = await repo.list({ page: 1, limit: 10 });
 

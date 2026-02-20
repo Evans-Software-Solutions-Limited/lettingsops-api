@@ -5,12 +5,7 @@
  * Pass a `db` instance to the constructor to inject a test database.
  */
 import { and, count, eq } from "drizzle-orm";
-import {
-  type Db,
-  communicationLogs,
-  getDb,
-  leads,
-} from "@lettingsops/db";
+import { type Db, communicationLogs, getDb, leads } from "@lettingsops/db";
 
 export type LeadStatus =
   | "NEW"
@@ -177,7 +172,11 @@ export class LeadRepository {
       .where(eq(leads.id, id));
   }
 
-  async updateScore(id: string, score: number, category: ScoreCategory): Promise<void> {
+  async updateScore(
+    id: string,
+    score: number,
+    category: ScoreCategory,
+  ): Promise<void> {
     await this.db
       .update(leads)
       .set({ score, scoreCategory: category, updatedAt: new Date() })
@@ -186,7 +185,12 @@ export class LeadRepository {
 
   async addNote(
     id: string,
-    note: { source: string; messageId: string; subject: string; receivedAt: string },
+    note: {
+      source: string;
+      messageId: string;
+      subject: string;
+      receivedAt: string;
+    },
   ): Promise<void> {
     await this.db.insert(communicationLogs).values({
       leadId: id,
