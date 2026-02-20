@@ -11,9 +11,7 @@ export type BookViewingInput = {
 export const ViewingBookService = new Elysia({
   name: "ViewingBookService",
 }).decorate("viewingBookService", {
-  async bookViewing(
-    input: BookViewingInput,
-  ): Promise<{
+  async bookViewing(input: BookViewingInput): Promise<{
     viewingId: string;
     confirmedAt: string;
     calendarEventId?: string;
