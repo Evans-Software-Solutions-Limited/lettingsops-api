@@ -1,8 +1,5 @@
 import { NavLink, Outlet } from "react-router";
-import {
-  IconLayoutDashboard,
-  IconUsers,
-} from "@tabler/icons-react";
+import { IconLayoutDashboard, IconUsers } from "@tabler/icons-react";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: IconLayoutDashboard, end: true },

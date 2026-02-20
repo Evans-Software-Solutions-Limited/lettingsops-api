@@ -32,7 +32,13 @@ const STATUS_STYLES: Record<string, string> = {
   ARCHIVED: "bg-zinc-800 text-zinc-500",
 };
 
-function Field({ label, value }: { label: string; value?: string | number | null }) {
+function Field({
+  label,
+  value,
+}: {
+  label: string;
+  value?: string | number | null;
+}) {
   return (
     <div>
       <p className="text-xs text-muted-foreground mb-0.5">{label}</p>

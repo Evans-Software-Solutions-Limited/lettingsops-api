@@ -104,13 +104,19 @@ export function LeadsList({
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                <td
+                  colSpan={5}
+                  className="px-4 py-8 text-center text-muted-foreground"
+                >
                   Loading leads...
                 </td>
               </tr>
             ) : leads.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                <td
+                  colSpan={5}
+                  className="px-4 py-8 text-center text-muted-foreground"
+                >
                   No leads found.
                 </td>
               </tr>
@@ -131,7 +137,8 @@ export function LeadsList({
                     <span
                       className={[
                         "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium",
-                        STATUS_STYLES[lead.status] ?? "bg-zinc-700 text-zinc-200",
+                        STATUS_STYLES[lead.status] ??
+                          "bg-zinc-700 text-zinc-200",
                       ].join(" ")}
                     >
                       {lead.status.replace("_", " ")}
