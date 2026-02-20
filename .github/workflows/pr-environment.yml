@@ -66,6 +66,7 @@ jobs:
   deploy:
     name: Deploy PR Environment
     runs-on: ubuntu-latest
+    environment: staging
     needs: [install, changes]
     if: ${{ needs.changes.outputs.has-changes == 'true' && (github.event.label.name == 'ready-for-test' || contains(github.event.pull_request.labels.*.name, 'ready-for-test')) && github.actor != 'dependabot[bot]' }}
     steps:
@@ -84,12 +85,10 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN_PR }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_STAGING }}
           aws-region: ${{ vars.AWS_REGION || 'eu-west-2' }}
 
       # ── Database migration ────────────────────────────────────────────────
-      # Pushes the Drizzle schema to Neon before deploying infrastructure.
-      # Remove or gate this step if you need manual migration control.
       - name: Push database schema (db:push)
         run: cd packages/db && bun run db:push
         env:
@@ -117,7 +116,7 @@ jobs:
         with:
           issue-number: ${{ github.event.pull_request.number }}
           body: |
-            ## 🚀 Staging Environment Deployed
+            ## 🚀 PR Environment Deployed
 
             | Resource | URL |
             |----------|-----|
