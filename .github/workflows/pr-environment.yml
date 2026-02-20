@@ -90,6 +90,15 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_PR }}
           aws-region: ${{ vars.AWS_REGION || 'eu-west-2' }}
 
+      # ── Database migration ────────────────────────────────────────────────
+      # Pushes the Drizzle schema to Neon before deploying infrastructure.
+      # Remove or gate this step if you need manual migration control.
+      - name: Push database schema (db:push)
+        run: cd packages/db && bun run db:push
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      # ─────────────────────────────────────────────────────────────────────
+
       - name: Deploy
         run: bunx sst deploy --stage ${{ env.PR_PREFIX }}
 
