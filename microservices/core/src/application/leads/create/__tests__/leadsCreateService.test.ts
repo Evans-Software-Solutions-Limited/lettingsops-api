@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 
 describe("LeadsCreateService", () => {
   it("should call LeadRepository.create with NEW status", async () => {
