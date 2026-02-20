@@ -1,3 +1,1 @@
-import type { CoreApi } from "./api";
-
-export type { CoreApi };
+export * from "./api";

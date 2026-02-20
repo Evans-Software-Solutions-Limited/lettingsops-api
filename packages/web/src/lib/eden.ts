@@ -1,6 +1,6 @@
 import { treaty } from "@elysiajs/eden";
-import { type CoreApi } from "@sst-monorepo-template/core";
+import { type LettingsApi } from "@lettingsops/lettings-service";
 
 export const api = {
-  core: treaty<CoreApi>(import.meta.env.VITE_CORE_API_URL),
+  lettings: treaty<LettingsApi>(import.meta.env.VITE_LETTINGS_API_URL),
 };

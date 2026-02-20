@@ -1,10 +1,6 @@
-export const coreAPI = new sst.aws.ApiGatewayV2("api-core");
-export const otherServiceAPI = new sst.aws.ApiGatewayV2("api-other-service");
+export const lettingsAPI = new sst.aws.ApiGatewayV2("lettings-api");
 
-coreAPI.route("$default", "microservices/core/src/api.handler");
-otherServiceAPI.route(
-  "$default",
-  "microservices/other-service/src/api.handler",
-);
+lettingsAPI.route("$default", "microservices/core/src/api.handler");
 
-// api.addAuthorizer
+// TODO: add auth when API key / JWT middleware is in place
+// lettingsAPI.addAuthorizer(...)

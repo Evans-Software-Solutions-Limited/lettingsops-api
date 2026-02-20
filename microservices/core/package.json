@@ -1,5 +1,5 @@
 {
-  "name": "@sst-monorepo-template/core",
+  "name": "@lettingsops/lettings-service",
   "version": "0.0.0",
   "type": "module",
   "exports": {
