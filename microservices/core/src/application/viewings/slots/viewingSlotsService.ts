@@ -15,7 +15,7 @@ export type Slot = {
 
 export const ViewingSlotsService = new Elysia({ name: "ViewingSlotsService" })
   .decorate("viewingSlotsService", {
-    async getAvailableSlots(query: SlotQuery): Promise<{ slots: Slot[] }> {
+    async getAvailableSlots(_query: SlotQuery): Promise<{ slots: Slot[] }> {
       // TODO: integrate with Google Calendar or Outlook Calendar API
       // Flow: fetch calendar events for propertyRef within date range
       //       return free slots as 30-min or 60-min windows

@@ -15,7 +15,7 @@
     "build": "turbo run build --cache-dir .turbo",
     "test": "turbo run test:unit --cache-dir .turbo",
     "test:unit": "turbo run test:unit --cache-dir .turbo",
-    "tear-down": "sst remove",
+    "tear-down": "sst remove"
   },
   "devDependencies": {
     "@tsconfig/node22": "^22",
