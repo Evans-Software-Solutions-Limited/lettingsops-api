@@ -9,9 +9,6 @@ permissions:
   pull-requests: write
   id-token: write
 
-env:
-  PR_PREFIX: pr-${{ github.event.pull_request.number }}
-
 jobs:
   install:
     name: Install
@@ -90,8 +87,17 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_PR }}
           aws-region: ${{ vars.AWS_REGION || 'eu-west-2' }}
 
+      # ── Database migration ────────────────────────────────────────────────
+      # Pushes the Drizzle schema to Neon before deploying infrastructure.
+      # Remove or gate this step if you need manual migration control.
+      - name: Push database schema (db:push)
+        run: cd packages/db && bun run db:push
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      # ─────────────────────────────────────────────────────────────────────
+
       - name: Deploy
-        run: bunx sst deploy --stage ${{ env.PR_PREFIX }}
+        run: bunx sst deploy --stage staging
 
       - name: Extract outputs
         id: sst-outputs
@@ -111,11 +117,11 @@ jobs:
         with:
           issue-number: ${{ github.event.pull_request.number }}
           body: |
-            ## 🚀 PR Environment Deployed
+            ## 🚀 Staging Environment Deployed
 
             | Resource | URL |
             |----------|-----|
             | **API** | ${{ steps.sst-outputs.outputs.api_url }} |
             | **Web** | ${{ steps.sst-outputs.outputs.web_url }} |
 
-            *Stage: `${{ env.PR_PREFIX }}`*
+            *Stage: `staging`*

@@ -5,7 +5,12 @@ import { QualificationRepository } from "../../repositories/qualificationReposit
 export type QualificationAnswers = {
   moveInDate: string;
   occupants: number;
-  employmentStatus: "employed" | "self_employed" | "unemployed" | "student" | "retired";
+  employmentStatus:
+    | "employed"
+    | "self_employed"
+    | "unemployed"
+    | "student"
+    | "retired";
   incomeBand: "under_20k" | "20k_30k" | "30k_50k" | "50k_75k" | "over_75k";
   hasPets: boolean;
   viewingAvailability: string[];
@@ -37,7 +42,8 @@ function scoreQualification(
 
   // Move-in date urgency (within 30 days = motivated applicant)
   const daysUntilMoveIn =
-    (new Date(answers.moveInDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+    (new Date(answers.moveInDate).getTime() - Date.now()) /
+    (1000 * 60 * 60 * 24);
   if (daysUntilMoveIn <= 30 && daysUntilMoveIn >= 0) score += 2;
 
   // Employment stability
@@ -53,37 +59,42 @@ function scoreQualification(
   return { score, category };
 }
 
-export const QualificationSubmitService = new Elysia({ name: "QualificationSubmitService" })
-  .decorate("qualificationSubmitService", {
-    async submitQualification(
-      leadId: string,
-      answers: QualificationAnswers,
-    ): Promise<{ qualificationId: string; score: number; category: ScoreCategory }> {
-      const leadRepo = new LeadRepository();
-      const qualRepo = new QualificationRepository();
+export const QualificationSubmitService = new Elysia({
+  name: "QualificationSubmitService",
+}).decorate("qualificationSubmitService", {
+  async submitQualification(
+    leadId: string,
+    answers: QualificationAnswers,
+  ): Promise<{
+    qualificationId: string;
+    score: number;
+    category: ScoreCategory;
+  }> {
+    const leadRepo = new LeadRepository();
+    const qualRepo = new QualificationRepository();
 
-      const lead = await leadRepo.findById(leadId);
-      if (!lead) throw new Error(`Lead not found: ${leadId}`);
+    const lead = await leadRepo.findById(leadId);
+    if (!lead) throw new Error(`Lead not found: ${leadId}`);
 
-      // TODO: fetch monthly rent from property ref — using placeholder for now
-      const monthlyRent = lead.propertyRent ?? 1500;
+    // TODO: fetch monthly rent from property ref — using placeholder for now
+    const monthlyRent = lead.propertyRent ?? 1500;
 
-      const { score, category } = scoreQualification(answers, monthlyRent);
+    const { score, category } = scoreQualification(answers, monthlyRent);
 
-      const qualification = await qualRepo.create({
-        leadId,
-        answers,
-        score,
-        category,
-      });
+    const qualification = await qualRepo.create({
+      leadId,
+      answers,
+      score,
+      category,
+    });
 
-      await leadRepo.updateScore(leadId, score, category);
-      await leadRepo.updateStatus(leadId, "QUALIFYING");
+    await leadRepo.updateScore(leadId, score, category);
+    await leadRepo.updateStatus(leadId, "QUALIFYING");
 
-      return {
-        qualificationId: qualification.id,
-        score,
-        category,
-      };
-    },
-  });
+    return {
+      qualificationId: qualification.id,
+      score,
+      category,
+    };
+  },
+});

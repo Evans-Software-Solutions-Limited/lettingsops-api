@@ -13,7 +13,7 @@ export default $config({
     const api = await import("./infra/api");
     const web = await import("./infra/web");
     return {
-      api: api.coreAPI.url,
+      api: api.lettingsAPI.url,
       web: $dev ? "http://localhost:5173" : web.frontend.url,
     };
   },

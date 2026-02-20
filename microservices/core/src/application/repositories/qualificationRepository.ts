@@ -1,9 +1,10 @@
 /**
  * QualificationRepository
  *
- * Data access for Qualification records.
+ * Data access for Qualification records — backed by Neon via Drizzle ORM.
  */
-
+import { eq } from "drizzle-orm";
+import { type Db, getDb, qualifications } from "@lettingsops/db";
 import type { ScoreCategory } from "./leadRepository";
 
 export type EmploymentStatus =
@@ -45,16 +46,52 @@ export type CreateQualificationInput = {
   category: ScoreCategory;
 };
 
+function rowToQualification(
+  row: typeof qualifications.$inferSelect,
+): Qualification {
+  return {
+    id: row.id,
+    leadId: row.leadId,
+    answers: row.answers as QualificationAnswers,
+    score: row.score,
+    category: row.category as ScoreCategory,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
 export class QualificationRepository {
   static readonly key = "QualificationRepository";
 
+  private db: Db;
+
+  constructor(db?: Db) {
+    this.db = db ?? getDb();
+  }
+
   async create(input: CreateQualificationInput): Promise<Qualification> {
-    // TODO: implement with Drizzle ORM
-    throw new Error("Not implemented: QualificationRepository.create");
+    const [row] = await this.db
+      .insert(qualifications)
+      .values({
+        leadId: input.leadId,
+        answers: input.answers as Record<string, unknown>,
+        score: input.score,
+        category: input.category,
+      })
+      .returning();
+
+    if (!row)
+      throw new Error("Failed to create qualification — no row returned");
+    return rowToQualification(row);
   }
 
   async findByLeadId(leadId: string): Promise<Qualification | null> {
-    // TODO: implement with Drizzle ORM
-    throw new Error("Not implemented: QualificationRepository.findByLeadId");
+    const [row] = await this.db
+      .select()
+      .from(qualifications)
+      .where(eq(qualifications.leadId, leadId))
+      .orderBy(qualifications.createdAt)
+      .limit(1);
+
+    return row ? rowToQualification(row) : null;
   }
 }
