@@ -1,4 +1,4 @@
-import { coreAPI } from "./api";
+import { lettingsAPI } from "./api";
 
 const region = aws.getRegionOutput().name;
 
@@ -10,6 +10,6 @@ export const frontend = new sst.aws.StaticSite("web", {
   },
   environment: {
     VITE_REGION: region,
-    VITE_CORE_API_URL: coreAPI.url,
+    VITE_CORE_API_URL: lettingsAPI.url,
   },
 });
