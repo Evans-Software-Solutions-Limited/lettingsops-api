@@ -4,6 +4,7 @@ import { ThemeProvider } from "./components/theme-provider";
 import { AppShell } from "./components/layout/AppShell";
 import Dashboard from "./pages/Dashboard";
 import LeadDetailPage from "./pages/LeadDetail";
+import LeadsPage from "./pages/Leads";
 import Login from "./pages/Login";
 
 const queryClient = new QueryClient({
@@ -23,6 +24,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route element={<AppShell />}>
             <Route index element={<Dashboard />} />
+            <Route path="/leads" element={<LeadsPage />} />
             <Route path="/leads/:id" element={<LeadDetailPage />} />
           </Route>
         </Routes>
