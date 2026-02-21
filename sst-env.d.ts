@@ -5,7 +5,20 @@
 /* biome-ignore-all lint: auto-generated */
 
 declare module "sst" {
-  export interface Resource {}
+  export interface Resource {
+    LettingsOpsDatabaseUrl: {
+      type: "sst.sst.Secret";
+      value: string;
+    };
+    "lettings-api": {
+      type: "sst.aws.ApiGatewayV2";
+      url: string;
+    };
+    web: {
+      type: "sst.aws.StaticSite";
+      url: string;
+    };
+  }
 }
 /// <reference path="sst-env.d.ts" />
 
