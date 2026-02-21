@@ -4,7 +4,7 @@ import { LeadsList, type Lead } from "../LeadsList.presenter";
 import { MemoryRouter } from "react-router";
 
 vi.mock("react-router", async (importOriginal) => {
-  const actual = await importOriginal() as any;
+  const actual = (await importOriginal()) as typeof import("react-router");
   return {
     ...actual,
     useNavigate: () => vi.fn(),

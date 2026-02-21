@@ -28,6 +28,7 @@ describe("LeadDetailContainer", () => {
       data: null,
       isLoading: false,
       error: null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
 
     render(<LeadDetailContainer />);
@@ -50,6 +51,7 @@ describe("LeadDetailContainer", () => {
       data: mockLead,
       isLoading: false,
       error: null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
 
     render(<LeadDetailContainer />);
