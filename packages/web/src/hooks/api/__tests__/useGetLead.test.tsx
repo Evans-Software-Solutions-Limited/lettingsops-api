@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 vi.mock("@/lib/eden", () => ({
   api: {
     lettings: {
-      leads: (id: string) => ({
+      leads: () => ({
         get: vi.fn(),
       }),
     },
@@ -37,15 +37,20 @@ describe("useGetLead", () => {
   });
 
   it("Uses correct query key", () => {
-    const testId = "test-lead-id";
-    const { result } = renderHook(() => useGetLead(testId), { wrapper });
+    const { result } = renderHook(() => useGetLead("test-lead-id"), {
+      wrapper,
+    });
 
     expect(result.current).toBeDefined();
   });
 
   it("Handles different id values correctly", () => {
-    const { result: result1 } = renderHook(() => useGetLead("id1"), { wrapper });
-    const { result: result2 } = renderHook(() => useGetLead("id2"), { wrapper });
+    const { result: result1 } = renderHook(() => useGetLead("id1"), {
+      wrapper,
+    });
+    const { result: result2 } = renderHook(() => useGetLead("id2"), {
+      wrapper,
+    });
 
     expect(result1.current).toBeDefined();
     expect(result2.current).toBeDefined();

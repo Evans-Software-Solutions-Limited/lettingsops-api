@@ -26,7 +26,7 @@ describe("useListLeads", () => {
 
   it("Calls the correct query key", () => {
     const params = { status: "NEW", page: 1, limit: 10 };
-    
+
     const { result } = renderHook(() => useListLeads(params), { wrapper });
 
     expect(result.current).toBeDefined();
@@ -41,9 +41,13 @@ describe("useListLeads", () => {
   it("Uses correct query key with different params", () => {
     const params1 = { status: "NEW" };
     const params2 = { status: "CONTACTED", page: 2 };
-    
-    const { result: result1 } = renderHook(() => useListLeads(params1), { wrapper });
-    const { result: result2 } = renderHook(() => useListLeads(params2), { wrapper });
+
+    const { result: result1 } = renderHook(() => useListLeads(params1), {
+      wrapper,
+    });
+    const { result: result2 } = renderHook(() => useListLeads(params2), {
+      wrapper,
+    });
 
     expect(result1.current).toBeDefined();
     expect(result2.current).toBeDefined();

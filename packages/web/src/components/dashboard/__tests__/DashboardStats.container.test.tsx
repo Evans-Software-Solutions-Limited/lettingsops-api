@@ -15,8 +15,8 @@ describe("DashboardStatsContainer", () => {
       error: null,
     } as any);
 
-    const { container } = render(<DashboardStatsContainer />);
-    
+    render(<DashboardStatsContainer />);
+
     // The presenter should receive isLoading=true
     expect(mockUseListLeads).toHaveBeenCalledWith({ limit: 200 });
   });

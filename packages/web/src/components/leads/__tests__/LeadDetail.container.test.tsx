@@ -4,18 +4,18 @@ import { LeadDetailContainer } from "../LeadDetail.container";
 import { useGetLead } from "@/hooks/api/useGetLead";
 
 vi.mock("@/hooks/api/useGetLead");
-vi.mock("react-router", async (importOriginal) => {
-  const actual = await importOriginal();
+vi.mock("react-router", async () => {
   return {
-    ...actual,
     useParams: () => ({ id: "test-id" }),
   };
 });
 
 vi.mock("../LeadDetail.presenter", () => ({
-  LeadDetail: ({ lead, isLoading }: any) => (
+  LeadDetail: ({ lead, isLoading }: { lead: unknown; isLoading: boolean }) => (
     <div>
-      {isLoading ? "Loading lead..." : lead?.name || "Lead not found."}
+      {isLoading
+        ? "Loading lead..."
+        : (lead as { name?: string })?.name || "Lead not found."}
     </div>
   ),
 }));

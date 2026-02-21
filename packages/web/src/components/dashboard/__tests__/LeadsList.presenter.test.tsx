@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { vi } from "vitest";
-import { LeadsList, Lead } from "../LeadsList.presenter";
+import { LeadsList, type Lead } from "../LeadsList.presenter";
 import { MemoryRouter } from "react-router";
 
 vi.mock("react-router", async (importOriginal) => {
@@ -45,7 +45,7 @@ describe("LeadsList", () => {
     render(
       <MemoryRouter>
         <LeadsList {...defaultProps} isLoading={true} />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     expect(screen.getByText("Loading leads...")).toBeDefined();
@@ -55,7 +55,7 @@ describe("LeadsList", () => {
     render(
       <MemoryRouter>
         <LeadsList {...defaultProps} leads={[]} total={0} />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     expect(screen.getByText("No leads found.")).toBeDefined();
@@ -65,7 +65,7 @@ describe("LeadsList", () => {
     render(
       <MemoryRouter>
         <LeadsList {...defaultProps} />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     expect(screen.getByText("John Doe")).toBeDefined();
@@ -76,18 +76,16 @@ describe("LeadsList", () => {
 
   it("clicking a row navigates to /leads/:id", () => {
     const mockNavigate = vi.fn();
-    vi.doMock("react-router", async (importOriginal) => {
-      const actual = await importOriginal();
+    vi.doMock("react-router", async () => {
       return {
-        ...actual,
         useNavigate: () => mockNavigate,
       };
     });
 
-    const { rerender } = render(
+    render(
       <MemoryRouter>
         <LeadsList {...defaultProps} />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     const rows = screen.getAllByRole("row");
@@ -98,7 +96,7 @@ describe("LeadsList", () => {
     render(
       <MemoryRouter>
         <LeadsList {...defaultProps} />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     const allButton = screen.getByText("All");
@@ -119,21 +117,21 @@ describe("LeadsList", () => {
     render(
       <MemoryRouter>
         <LeadsList {...defaultProps} total={25} limit={10} page={1} />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     expect(screen.getByText("Page 1 of 3 · 25 total")).toBeDefined();
-    
+
     const previousButton = screen.getByText("Previous");
     const nextButton = screen.getByText("Next");
 
     expect(previousButton).toBeDefined();
     expect(nextButton).toBeDefined();
-    
+
     // Check if buttons are disabled by checking their class or attribute
     const previousButtonElement = previousButton.closest("button");
     const nextButtonElement = nextButton.closest("button");
-    
+
     expect(previousButtonElement?.hasAttribute("disabled")).toBe(true);
     expect(nextButtonElement?.hasAttribute("disabled")).toBe(false);
   });

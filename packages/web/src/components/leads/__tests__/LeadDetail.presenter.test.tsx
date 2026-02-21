@@ -21,7 +21,7 @@ describe("LeadDetail", () => {
     render(
       <MemoryRouter>
         <LeadDetail lead={null} isLoading={true} />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     expect(screen.getByText("Loading lead...")).toBeDefined();
@@ -31,7 +31,7 @@ describe("LeadDetail", () => {
     render(
       <MemoryRouter>
         <LeadDetail lead={null} isLoading={false} />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     expect(screen.getByText("Lead not found.")).toBeDefined();
@@ -41,7 +41,7 @@ describe("LeadDetail", () => {
     render(
       <MemoryRouter>
         <LeadDetail lead={mockLead} isLoading={false} />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     expect(screen.getByText("John Doe")).toBeDefined();
@@ -59,7 +59,7 @@ describe("LeadDetail", () => {
     render(
       <MemoryRouter>
         <LeadDetail lead={leadWithoutOptionalFields} isLoading={false} />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     const phoneField = screen.getByText("Phone").parentElement;
@@ -73,7 +73,7 @@ describe("LeadDetail", () => {
     render(
       <MemoryRouter>
         <LeadDetail lead={mockLead} isLoading={false} />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     expect(screen.getByText("John Doe")).toBeDefined();
