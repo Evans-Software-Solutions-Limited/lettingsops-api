@@ -6,99 +6,91 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ==========================================================================
-   BRAND PALETTE – Adjust these values to tweak the entire theme
+   BRAND PALETTE – LettingsOps dark teal theme
    ========================================================================== */
 :root {
-  --brand-primary: #ef5e41;
-  --brand-primary-dark: #002c62;
-  --brand-secondary-teal: #006e92;
-  --brand-secondary-mint: #10b798;
-  --brand-accent-gold: #faa74a;
-  --brand-accent-purple: #a7589c;
-  --brand-gradient-start: #892887;
-  --brand-gradient-mid: #e94258;
-  --brand-gradient-end: #f27224;
-  --brand-background-darkest: #02040f;
+  --brand-primary: #2dd4bf;
+  --brand-primary-dark: #0f766e;
+  --brand-secondary: #14b8a6;
+  --brand-accent: #0d9488;
+  --brand-background-darkest: #09090b;
 
-  /* Primary gradient – symbolic of logo, used for primary actions */
-  --primary-gradient: linear-gradient(
-    to right,
-    var(--brand-gradient-start),
-    var(--brand-gradient-mid),
-    var(--brand-gradient-end)
-  );
+  --primary-gradient: linear-gradient(to right, #0f766e, #2dd4bf);
 }
 
 /* ==========================================================================
-   SEMANTIC TOKENS – Derived from brand palette above
+   SEMANTIC TOKENS – Light mode (fallback, app defaults to dark)
    ========================================================================== */
 :root {
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.24 0.015 260);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.24 0.015 260);
-  --primary: oklch(0.65 0.2 35);
+  --primary: oklch(0.72 0.14 185);
   --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.92 0.02 200);
-  --secondary-foreground: oklch(0.25 0.05 220);
+  --secondary: oklch(0.92 0.02 185);
+  --secondary-foreground: oklch(0.25 0.05 185);
   --muted: oklch(0.965 0.005 260);
   --muted-foreground: oklch(0.45 0.02 260);
-  --accent: oklch(0.55 0.18 330);
+  --accent: oklch(0.72 0.14 185);
   --accent-foreground: oklch(0.99 0 0);
   --destructive: oklch(0.55 0.22 25);
   --border: oklch(0.9 0.01 260);
   --input: oklch(0.9 0.01 260);
-  --ring: oklch(0.65 0.2 35);
-  --chart-1: oklch(0.65 0.2 35);
-  --chart-2: oklch(0.55 0.18 330);
-  --chart-3: oklch(0.68 0.12 175);
+  --ring: oklch(0.72 0.14 185);
+  --chart-1: oklch(0.72 0.14 185);
+  --chart-2: oklch(0.65 0.12 185);
+  --chart-3: oklch(0.68 0.12 145);
   --chart-4: oklch(0.5 0.1 220);
   --chart-5: oklch(0.78 0.14 75);
-  --radius: 0.45rem;
+  --radius: 0.5rem;
   --sidebar: oklch(0.985 0.002 247);
   --sidebar-foreground: oklch(0.24 0.015 260);
-  --sidebar-primary: oklch(0.65 0.2 35);
+  --sidebar-primary: oklch(0.72 0.14 185);
   --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.55 0.18 330);
+  --sidebar-accent: oklch(0.65 0.12 185);
   --sidebar-accent-foreground: oklch(0.99 0 0);
   --sidebar-border: oklch(0.9 0.01 260);
-  --sidebar-ring: oklch(0.65 0.2 35);
+  --sidebar-ring: oklch(0.72 0.14 185);
   --background: oklch(1 0 0);
   --foreground: oklch(0.24 0.015 260);
 }
 
+/* ==========================================================================
+   DARK MODE – LettingsOps dark zinc + teal
+   ========================================================================== */
 .dark {
-  --background: var(--brand-background-darkest);
-  --foreground: oklch(0.97 0.005 260);
-  --card: oklch(0.14 0.025 260);
-  --card-foreground: oklch(0.97 0.005 260);
-  --popover: oklch(0.14 0.025 260);
-  --popover-foreground: oklch(0.97 0.005 260);
-  --primary: oklch(0.68 0.2 35);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.22 0.03 220);
-  --secondary-foreground: oklch(0.97 0 0);
-  --muted: oklch(0.22 0.025 260);
-  --muted-foreground: oklch(0.65 0.02 260);
-  --accent: oklch(0.6 0.18 330);
-  --accent-foreground: oklch(0.99 0 0);
-  --destructive: oklch(0.65 0.19 25);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.68 0.2 35);
-  --chart-1: oklch(0.68 0.2 35);
-  --chart-2: oklch(0.6 0.18 330);
-  --chart-3: oklch(0.68 0.12 175);
-  --chart-4: oklch(0.55 0.1 220);
-  --chart-5: oklch(0.78 0.14 75);
-  --sidebar: oklch(0.12 0.02 260);
-  --sidebar-foreground: oklch(0.97 0.005 260);
-  --sidebar-primary: oklch(0.68 0.2 35);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.6 0.18 330);
-  --sidebar-accent-foreground: oklch(0.99 0 0);
-  --sidebar-border: oklch(1 0 0 / 12%);
-  --sidebar-ring: oklch(0.68 0.2 35);
+  --background: #09090b;
+  --foreground: #fafafa;
+  --card: #18181b;
+  --card-foreground: #fafafa;
+  --popover: #18181b;
+  --popover-foreground: #fafafa;
+  --primary: #2dd4bf;
+  --primary-foreground: #09090b;
+  --secondary: #27272a;
+  --secondary-foreground: #fafafa;
+  --muted: #27272a;
+  --muted-foreground: #a1a1aa;
+  --accent: #2dd4bf;
+  --accent-foreground: #09090b;
+  --destructive: #f87171;
+  --border: #27272a;
+  --input: #27272a;
+  --ring: #2dd4bf;
+  --chart-1: #2dd4bf;
+  --chart-2: #34d399;
+  --chart-3: #fbbf24;
+  --chart-4: #f87171;
+  --chart-5: #a78bfa;
+  --sidebar: #09090b;
+  --sidebar-foreground: #fafafa;
+  --sidebar-primary: #2dd4bf;
+  --sidebar-primary-foreground: #09090b;
+  --sidebar-accent: #18181b;
+  --sidebar-accent-foreground: #fafafa;
+  --sidebar-border: #27272a;
+  --sidebar-ring: #2dd4bf;
 }
 
 @theme inline {
@@ -150,14 +142,11 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    @apply border-border outline-ring/50;
   }
   body {
     @apply font-sans bg-background text-foreground;
-    @apply font-sans bg-background text-foreground;
   }
   html {
-    @apply font-sans;
     @apply font-sans;
   }
 }
