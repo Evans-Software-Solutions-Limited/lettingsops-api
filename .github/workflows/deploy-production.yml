@@ -1,9 +1,9 @@
-name: Deploy Staging
+name: Deploy Production
 
 on:
   push:
-    branches:
-      - main
+    tags:
+      - "v*"
 
 permissions:
   contents: read
@@ -11,9 +11,9 @@ permissions:
 
 jobs:
   deploy:
-    name: Deploy to Staging
+    name: Deploy to Production
     runs-on: ubuntu-latest
-    environment: staging
+    environment: production
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,7 +30,7 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN_STAGING }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_PRODUCTION }}
           aws-region: ${{ vars.AWS_REGION || 'eu-west-2' }}
 
       # ── Database migration ────────────────────────────────────────────────
@@ -41,4 +41,4 @@ jobs:
       # ─────────────────────────────────────────────────────────────────────
 
       - name: Deploy
-        run: bunx sst deploy --stage staging
+        run: bunx sst deploy --stage production
