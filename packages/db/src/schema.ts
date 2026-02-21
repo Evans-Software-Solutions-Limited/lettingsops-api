@@ -119,6 +119,126 @@ export const auditLogs = pgTable("audit_logs", {
     .defaultNow(),
 });
 
+// ─── Agencies ───────────────────────────────────────────────────────────────
+
+export const agencies = pgTable("agencies", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  inboundEmail: text("inbound_email").notNull().unique(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// ─── Estate Agents ──────────────────────────────────────────────────────────
+
+export const estateAgents = pgTable("estate_agents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  agencyId: uuid("agency_id")
+    .notNull()
+    .references(() => agencies.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  calendarId: text("calendar_id"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// ─── Agency Required Fields ─────────────────────────────────────────────────
+
+export const agencyRequiredFields = pgTable("agency_required_fields", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  agencyId: uuid("agency_id")
+    .notNull()
+    .references(() => agencies.id, { onDelete: "cascade" }),
+  fieldKey: text("field_key").notNull(),
+  fieldLabel: text("field_label").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  unique: ["agency_id", "field_key"],
+});
+
+// ─── Email Conversations ────────────────────────────────────────────────────
+
+export const emailConversations = pgTable("email_conversations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  agencyId: uuid("agency_id")
+    .notNull()
+    .references(() => agencies.id, { onDelete: "cascade" }),
+  leadId: uuid("lead_id").references(() => leads.id, { onDelete: "set null" }),
+  tenantEmail: text("tenant_email").notNull(),
+  threadMessageIds: jsonb("thread_message_ids").notNull().defaultTo([]),
+  collectedFields: jsonb("collected_fields").notNull().defaultTo({}),
+  status: text("status").notNull().default("active"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  unique: ["agency_id", "tenant_email"],
+});
+
+// ─── Viewing Requests ───────────────────────────────────────────────────────
+
+export const viewingRequests = pgTable("viewing_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  leadId: uuid("lead_id")
+    .notNull()
+    .references(() => leads.id, { onDelete: "cascade" }),
+  agencyId: uuid("agency_id")
+    .notNull()
+    .references(() => agencies.id, { onDelete: "cascade" }),
+  conversationId: uuid("conversation_id").references(
+    () => emailConversations.id,
+    { onDelete: "set null" },
+  ),
+  status: statusEnum("status").notNull().default("PENDING_REVIEW"),
+  assignedAgentId: uuid("assigned_agent_id").references(() => estateAgents.id, {
+    onDelete: "set null",
+  }),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// ─── Availability Windows ───────────────────────────────────────────────────
+
+export const availabilityWindows = pgTable("availability_windows", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  agencyId: uuid("agency_id")
+    .notNull()
+    .references(() => agencies.id, { onDelete: "cascade" }),
+  estateAgentId: uuid("estate_agent_id").references(() => estateAgents.id, {
+    onDelete: "set null",
+  }),
+  dayOfWeek: integer("day_of_week").notNull(),
+  startTime: text("start_time").notNull(),
+  endTime: text("end_time").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// ─── Viewings Update ────────────────────────────────────────────────────────
+
+export const viewingsUpdate = pgTable("viewings", {
+  viewingRequestId: uuid("viewing_request_id").references(
+    () => viewingRequests.id,
+    { onDelete: "set null" },
+  ),
+  assignedAgentId: uuid("assigned_agent_id").references(() => estateAgents.id, {
+    onDelete: "set null",
+  }),
+});
+
 // ─── Types (inferred from schema) ─────────────────────────────────────────────
 
 export type LeadRow = typeof leads.$inferSelect;
