@@ -1,4 +1,4 @@
-const databaseUrl = new sst.Secret("LettingsOpsDatabaseUrl");
+import { databaseUrl } from "./secrets";
 
 export const lettingsAPI = new sst.aws.ApiGatewayV2("lettings-api");
 

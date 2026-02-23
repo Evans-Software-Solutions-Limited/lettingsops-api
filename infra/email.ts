@@ -1,5 +1,4 @@
-// Secret for the inbound email domain (e.g. "inbound.lettingsops.io")
-const emailDomain = new sst.Secret("LettingsOpsEmailDomain");
+import { databaseUrl, emailDomain } from "./secrets";
 
 // S3 bucket to store raw inbound emails from SES
 export const emailBucket = new sst.aws.Bucket("LettingsOpsEmailBucket");
@@ -8,7 +7,7 @@ export const emailBucket = new sst.aws.Bucket("LettingsOpsEmailBucket");
 export const emailProcessorFn = new sst.aws.Function("EmailProcessor", {
   handler: "microservices/core/src/emailProcessor.handler",
   environment: {
-    DATABASE_URL: new sst.Secret("LettingsOpsDatabaseUrl").value,
+    DATABASE_URL: databaseUrl.value,
     EMAIL_DOMAIN: emailDomain.value,
     EMAIL_BUCKET: emailBucket.name,
   },
