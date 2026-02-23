@@ -9,6 +9,7 @@ import {
   type Db,
   emailConversations,
   type EmailConversationRow,
+  type ConversationTypeEnum,
   getDb,
 } from "@lettingsops/db";
 
@@ -16,6 +17,7 @@ export interface CreateConversationInput {
   agencyId: string;
   tenantEmail: string;
   leadId?: string;
+  conversationType?: ConversationTypeEnum;
 }
 
 export class ConversationRepository {
@@ -60,6 +62,7 @@ export class ConversationRepository {
         agencyId: input.agencyId,
         tenantEmail: input.tenantEmail,
         leadId: input.leadId,
+        conversationType: input.conversationType ?? "OTHER",
         threadMessageIds: [],
         collectedFields: {},
         status: "active",

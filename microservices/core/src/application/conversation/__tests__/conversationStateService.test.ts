@@ -18,6 +18,7 @@ const mockConversation = {
   agencyId: "agency-uuid-1",
   leadId: "lead-uuid-1",
   tenantEmail: "tenant@example.com",
+  conversationType: "VIEWING_ENQUIRY" as const,
   threadMessageIds: ["msg-001"],
   collectedFields: { name: "John Doe" },
   status: "active",
@@ -100,6 +101,7 @@ describe("ConversationStateService", () => {
         tenantEmail: "tenant@example.com",
         messageId: "msg-002",
         extractedFields: { email: "john@example.com" },
+        conversationType: "VIEWING_ENQUIRY",
       });
 
       // Assertions
@@ -111,6 +113,7 @@ describe("ConversationStateService", () => {
       );
 
       expect(result.conversationId).toBe("conv-uuid-1");
+      expect(result.conversationType).toBe("VIEWING_ENQUIRY");
       expect(result.collectedFields).toMatchObject({
         name: "John Doe",
         email: "john@example.com",
@@ -129,6 +132,7 @@ describe("ConversationStateService", () => {
         tenantEmail: "tenant@example.com",
         messageId: "msg-002",
         extractedFields: { email: "john@example.com" },
+        conversationType: "VIEWING_ENQUIRY",
       });
 
       expect(mockConversationRepo.markComplete).not.toHaveBeenCalled();
@@ -147,6 +151,7 @@ describe("ConversationStateService", () => {
         tenantEmail: "tenant@example.com",
         messageId: "msg-002",
         extractedFields: { email: "john@example.com", phone: "+447700900001" },
+        conversationType: "VIEWING_ENQUIRY",
       });
 
       // Should have name from existing + merged fields
@@ -172,6 +177,7 @@ describe("ConversationStateService", () => {
         tenantEmail: "tenant@example.com",
         messageId: "msg-002",
         extractedFields: { email: "john@example.com", phone: "+447700900001" },
+        conversationType: "VIEWING_ENQUIRY",
       });
 
       expect(mockConversationRepo.markComplete).toHaveBeenCalledOnce();
@@ -191,6 +197,7 @@ describe("ConversationStateService", () => {
         tenantEmail: "tenant@example.com",
         messageId: "msg-002",
         extractedFields: { email: "john@example.com", phone: "+447700900001" },
+        conversationType: "VIEWING_ENQUIRY",
       });
 
       expect(result.isComplete).toBe(true);
@@ -208,6 +215,7 @@ describe("ConversationStateService", () => {
         tenantEmail: "tenant@example.com",
         messageId: "msg-002",
         extractedFields: { email: "john@example.com" },
+        conversationType: "VIEWING_ENQUIRY",
       });
 
       expect(result.isComplete).toBe(false);
@@ -227,9 +235,91 @@ describe("ConversationStateService", () => {
         tenantEmail: "tenant@example.com",
         messageId: "msg-002",
         extractedFields: { name: "Jane Doe" }, // Override existing name
+        conversationType: "VIEWING_ENQUIRY",
       });
 
       expect(result.collectedFields.name).toBe("Jane Doe");
+    });
+  });
+
+  describe("type-aware routing", () => {
+    it("VIEWING_ENQUIRY — runs qualification loop with missing fields", async () => {
+      mockConversationRepo.findByAgencyAndEmail.mockResolvedValue(
+        mockConversation,
+      );
+      mockAgencyRepo.getRequiredFields.mockResolvedValue(mockRequiredFields);
+
+      const result = await processConversationState({
+        agencyId: "agency-uuid-1",
+        tenantEmail: "tenant@example.com",
+        messageId: "msg-002",
+        extractedFields: { email: "john@example.com" },
+        conversationType: "VIEWING_ENQUIRY",
+      });
+
+      expect(result.conversationType).toBe("VIEWING_ENQUIRY");
+      expect(result.isComplete).toBe(false);
+      expect(result.missingFields).toContain("phone");
+    });
+
+    it("MAINTENANCE_REQUEST — skips qualification, isComplete=true, missingFields=[]", async () => {
+      mockConversationRepo.findByAgencyAndEmail.mockResolvedValue(
+        mockConversation,
+      );
+      mockAgencyRepo.getRequiredFields.mockResolvedValue(mockRequiredFields);
+
+      const result = await processConversationState({
+        agencyId: "agency-uuid-1",
+        tenantEmail: "tenant@example.com",
+        messageId: "msg-002",
+        extractedFields: { email: "john@example.com" },
+        conversationType: "MAINTENANCE_REQUEST",
+      });
+
+      expect(result.conversationType).toBe("MAINTENANCE_REQUEST");
+      expect(result.isComplete).toBe(true);
+      expect(result.missingFields).toHaveLength(0);
+      expect(mockConversationRepo.markComplete).toHaveBeenCalledOnce();
+    });
+
+    it("GENERAL_ENQUIRY — skips qualification, isComplete=true, missingFields=[]", async () => {
+      mockConversationRepo.findByAgencyAndEmail.mockResolvedValue(
+        mockConversation,
+      );
+      mockAgencyRepo.getRequiredFields.mockResolvedValue(mockRequiredFields);
+
+      const result = await processConversationState({
+        agencyId: "agency-uuid-1",
+        tenantEmail: "tenant@example.com",
+        messageId: "msg-002",
+        extractedFields: { email: "john@example.com" },
+        conversationType: "GENERAL_ENQUIRY",
+      });
+
+      expect(result.conversationType).toBe("GENERAL_ENQUIRY");
+      expect(result.isComplete).toBe(true);
+      expect(result.missingFields).toHaveLength(0);
+      expect(mockConversationRepo.markComplete).toHaveBeenCalledOnce();
+    });
+
+    it("OTHER — skips qualification, isComplete=true, missingFields=[]", async () => {
+      mockConversationRepo.findByAgencyAndEmail.mockResolvedValue(
+        mockConversation,
+      );
+      mockAgencyRepo.getRequiredFields.mockResolvedValue(mockRequiredFields);
+
+      const result = await processConversationState({
+        agencyId: "agency-uuid-1",
+        tenantEmail: "tenant@example.com",
+        messageId: "msg-002",
+        extractedFields: { email: "john@example.com" },
+        conversationType: "OTHER",
+      });
+
+      expect(result.conversationType).toBe("OTHER");
+      expect(result.isComplete).toBe(true);
+      expect(result.missingFields).toHaveLength(0);
+      expect(mockConversationRepo.markComplete).toHaveBeenCalledOnce();
     });
   });
 });
