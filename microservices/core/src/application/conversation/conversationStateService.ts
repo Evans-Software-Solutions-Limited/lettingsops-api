@@ -5,6 +5,7 @@
  * Provides both an Elysia plugin for HTTP handlers and a standalone function for Lambda.
  */
 import Elysia from "elysia";
+import type { ConversationTypeEnum } from "@lettingsops/db";
 import { AgencyRepository } from "../repositories/agencyRepository";
 import { ConversationRepository } from "../repositories/conversationRepository";
 
@@ -13,11 +14,13 @@ export type ConversationStateInput = {
   tenantEmail: string;
   messageId: string;
   extractedFields: Record<string, string>; // partial — from LLM (or stub)
+  conversationType: ConversationTypeEnum;
   leadId?: string;
 };
 
 export type ConversationStateResult = {
   conversationId: string;
+  conversationType: ConversationTypeEnum;
   collectedFields: Record<string, string>;
   missingFields: string[]; // fieldKey values still not collected
   isComplete: boolean;
@@ -44,6 +47,7 @@ export async function processConversationState(
       agencyId: input.agencyId,
       tenantEmail: input.tenantEmail,
       leadId: input.leadId,
+      conversationType: input.conversationType,
     });
   }
 
@@ -63,22 +67,31 @@ export async function processConversationState(
   const requiredFields = await agencyRepo.getRequiredFields(input.agencyId);
   const requiredFieldKeys = requiredFields.map((f) => f.fieldKey);
 
-  // 6. Identify missing fields
-  const missingFields = requiredFieldKeys.filter(
-    (fieldKey) => !(fieldKey in mergedFields),
-  );
+  // 6. Type-aware routing
+  let missingFields: string[];
+  let isComplete: boolean;
 
-  // 7. Determine completion
-  const isComplete = missingFields.length === 0;
+  if (input.conversationType === "VIEWING_ENQUIRY") {
+    // Full qualification loop
+    missingFields = requiredFieldKeys.filter(
+      (fieldKey) => !(fieldKey in mergedFields),
+    );
+    isComplete = missingFields.length === 0;
+  } else {
+    // MAINTENANCE_REQUEST / GENERAL_ENQUIRY / OTHER — skip qualification, log and complete
+    missingFields = [];
+    isComplete = true;
+  }
 
-  // 8. Mark complete if necessary
+  // 7. Mark complete if necessary
   if (isComplete) {
     await conversationRepo.markComplete(conversation.id);
   }
 
-  // 9. Return result
+  // 8. Return result
   return {
     conversationId: conversation.id,
+    conversationType: input.conversationType,
     collectedFields: mergedFields,
     missingFields,
     isComplete,

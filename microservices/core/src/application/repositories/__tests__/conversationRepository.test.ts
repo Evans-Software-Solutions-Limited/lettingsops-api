@@ -48,6 +48,7 @@ const mockConversationRow = {
   agencyId: "agency-uuid-1",
   leadId: "lead-uuid-1",
   tenantEmail: "tenant@example.com",
+  conversationType: "VIEWING_ENQUIRY" as const,
   threadMessageIds: ["msg-001"],
   collectedFields: { name: "John Doe" },
   status: "active",

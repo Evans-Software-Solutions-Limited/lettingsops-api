@@ -43,6 +43,13 @@ export const viewingRequestStatusEnum = pgEnum("viewing_request_status", [
   "CONFIRMED",
 ]);
 
+export const conversationTypeEnum = pgEnum("conversation_type", [
+  "VIEWING_ENQUIRY",
+  "MAINTENANCE_REQUEST",
+  "GENERAL_ENQUIRY",
+  "OTHER",
+]);
+
 // ─── Leads ────────────────────────────────────────────────────────────────────
 
 export const leads = pgTable("leads", {
@@ -202,6 +209,9 @@ export const emailConversations = pgTable(
       onDelete: "set null",
     }),
     tenantEmail: text("tenant_email").notNull(),
+    conversationType: conversationTypeEnum("conversation_type")
+      .notNull()
+      .default("OTHER"),
     threadMessageIds: jsonb("thread_message_ids")
       .notNull()
       .$type<string[]>()
@@ -298,3 +308,5 @@ export type ViewingRequestRow = typeof viewingRequests.$inferSelect;
 export type NewViewingRequestRow = typeof viewingRequests.$inferInsert;
 export type AvailabilityWindowRow = typeof availabilityWindows.$inferSelect;
 export type NewAvailabilityWindowRow = typeof availabilityWindows.$inferInsert;
+export type ConversationTypeEnum =
+  (typeof conversationTypeEnum.enumValues)[number];
