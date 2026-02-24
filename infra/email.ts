@@ -23,6 +23,37 @@ emailBucket.notify({
   ],
 });
 
+// S3 bucket policy to allow SES to write emails to the bucket
+const emailBucketPolicy = new aws.s3.BucketPolicy(
+  "LettingsOpsEmailBucketPolicy",
+  {
+    bucket: emailBucket.name,
+    policy: aws.getCallerIdentityOutput().apply((identity) =>
+      emailBucket.arn.apply((bucketArn) =>
+        JSON.stringify({
+          Version: "2012-10-17",
+          Statement: [
+            {
+              Sid: "AllowSESPuts",
+              Effect: "Allow",
+              Principal: {
+                Service: "ses.amazonaws.com",
+              },
+              Action: "s3:PutObject",
+              Resource: `${bucketArn}/*`,
+              Condition: {
+                StringEquals: {
+                  "aws:SourceAccount": identity.accountId,
+                },
+              },
+            },
+          ],
+        }),
+      ),
+    ),
+  },
+);
+
 // SES Receipt Rule Set — routes inbound email to S3
 const receiptRuleSet = new aws.ses.ReceiptRuleSet("LettingsOpsRuleSet", {
   ruleSetName: "lettingsops-inbound",
@@ -44,4 +75,5 @@ new aws.ses.ReceiptRule("LettingsOpsInboundRule", {
       position: 1,
     },
   ],
+  dependsOn: [emailBucketPolicy],
 });
