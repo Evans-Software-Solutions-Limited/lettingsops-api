@@ -32,28 +32,27 @@ const emailBucketPolicy = new aws.s3.BucketPolicy(
     bucket: emailBucket.name,
     policy: aws.getCallerIdentityOutput().apply((identity) =>
       region.apply((regionName) =>
-        emailBucket.arn.apply(
-          (bucketArn) =>
-            JSON.stringify({
-              Version: "2012-10-17",
-              Statement: [
-                {
-                  Sid: "AllowSESPuts",
-                  Effect: "Allow",
-                  Principal: {
-                    Service: "ses.amazonaws.com",
-                  },
-                  Action: "s3:PutObject",
-                  Resource: `${bucketArn}/*`,
-                  Condition: {
-                    StringEquals: {
-                      "aws:SourceAccount": identity.accountId,
-                      "aws:SourceArn": `arn:aws:ses:${regionName}:${identity.accountId}:receipt-rule-set/lettingsops-inbound:receipt-rule/store-in-s3`,
-                    },
+        emailBucket.arn.apply((bucketArn) =>
+          JSON.stringify({
+            Version: "2012-10-17",
+            Statement: [
+              {
+                Sid: "AllowSESPuts",
+                Effect: "Allow",
+                Principal: {
+                  Service: "ses.amazonaws.com",
+                },
+                Action: "s3:PutObject",
+                Resource: `${bucketArn}/*`,
+                Condition: {
+                  StringEquals: {
+                    "aws:SourceAccount": identity.accountId,
+                    "aws:SourceArn": `arn:aws:ses:${regionName}:${identity.accountId}:receipt-rule-set/lettingsops-inbound:receipt-rule/store-in-s3`,
                   },
                 },
-              ],
-            }),
+              },
+            ],
+          }),
         ),
       ),
     ),
