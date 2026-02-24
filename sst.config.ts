@@ -2,11 +2,22 @@
 
 export default $config({
   app(input) {
+    const stage = input?.stage ?? "dev";
     return {
       name: "lettingsops-api",
-      removal: input?.stage === "production" ? "retain" : "remove",
-      protect: ["production"].includes(input?.stage),
+      removal: stage === "production" ? "retain" : "remove",
+      protect: stage === "production",
       home: "aws",
+      providers: {
+        aws: {
+          defaultTags: {
+            tags: {
+              App: "lettingsops-api",
+              Stage: stage,
+            },
+          },
+        },
+      },
     };
   },
   async run() {
