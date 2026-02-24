@@ -23,32 +23,37 @@ emailBucket.notify({
   ],
 });
 
-// S3 bucket policy to allow SES to write emails to the bucket
+// S3 bucket policy to allow SES to write emails to the bucket.
+// AWS requires both SourceAccount and SourceArn for SES receipt rules (see receiving-email-permissions).
+const region = aws.getRegionOutput().name;
 const emailBucketPolicy = new aws.s3.BucketPolicy(
   "LettingsOpsEmailBucketPolicy",
   {
     bucket: emailBucket.name,
     policy: aws.getCallerIdentityOutput().apply((identity) =>
-      emailBucket.arn.apply((bucketArn) =>
-        JSON.stringify({
-          Version: "2012-10-17",
-          Statement: [
-            {
-              Sid: "AllowSESPuts",
-              Effect: "Allow",
-              Principal: {
-                Service: "ses.amazonaws.com",
-              },
-              Action: "s3:PutObject",
-              Resource: `${bucketArn}/*`,
-              Condition: {
-                StringEquals: {
-                  "aws:SourceAccount": identity.accountId,
+      region.apply((regionName) =>
+        emailBucket.arn.apply((bucketArn) =>
+          JSON.stringify({
+            Version: "2012-10-17",
+            Statement: [
+              {
+                Sid: "AllowSESPuts",
+                Effect: "Allow",
+                Principal: {
+                  Service: "ses.amazonaws.com",
+                },
+                Action: "s3:PutObject",
+                Resource: `${bucketArn}/*`,
+                Condition: {
+                  StringEquals: {
+                    "aws:SourceAccount": identity.accountId,
+                    "aws:SourceArn": `arn:aws:ses:${regionName}:${identity.accountId}:receipt-rule-set/lettingsops-inbound:receipt-rule/store-in-s3`,
+                  },
                 },
               },
-            },
-          ],
-        }),
+            ],
+          }),
+        ),
       ),
     ),
   },
@@ -59,21 +64,26 @@ const receiptRuleSet = new aws.ses.ReceiptRuleSet("LettingsOpsRuleSet", {
   ruleSetName: "lettingsops-inbound",
 });
 
-new aws.ses.ActiveReceiptRuleSet("LettingsOpsActiveRuleSet", {
-  ruleSetName: receiptRuleSet.ruleSetName,
-});
+const activeReceiptRuleSet = new aws.ses.ActiveReceiptRuleSet(
+  "LettingsOpsActiveRuleSet",
+  { ruleSetName: receiptRuleSet.ruleSetName },
+);
 
-new aws.ses.ReceiptRule("LettingsOpsInboundRule", {
-  name: "store-in-s3",
-  ruleSetName: receiptRuleSet.ruleSetName,
-  enabled: true,
-  recipients: [emailDomain.value],
-  s3Actions: [
-    {
-      bucketName: emailBucket.name,
-      objectKeyPrefix: "incoming/",
-      position: 1,
-    },
-  ],
-  dependsOn: [emailBucketPolicy],
-});
+/** SES receipt rule that stores inbound email in S3; exported so the resource is retained and ordering is explicit. */
+export const inboundReceiptRule = new aws.ses.ReceiptRule(
+  "LettingsOpsInboundRule",
+  {
+    name: "store-in-s3",
+    ruleSetName: receiptRuleSet.ruleSetName,
+    enabled: true,
+    recipients: [emailDomain.value],
+    s3Actions: [
+      {
+        bucketName: emailBucket.name,
+        objectKeyPrefix: "incoming/",
+        position: 1,
+      },
+    ],
+  },
+  { dependsOn: [emailBucketPolicy, activeReceiptRuleSet] },
+);
