@@ -2,18 +2,37 @@ name: Deploy Staging
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+  workflow_dispatch:
+
+# Only one staging deploy at a time to avoid SST lock conflicts
+concurrency:
+  group: sst-staging
+  cancel-in-progress: false
 
 permissions:
   contents: read
   id-token: write
 
 jobs:
+  install:
+    name: Install
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && !contains(github.event.head_commit.message, 'release-please') && !contains(github.event.head_commit.message, 'Release ')) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup
+        uses: ./.github/actions/setup
+        with:
+          restore_cache: "false"
+
   deploy:
     name: Deploy to Staging
     runs-on: ubuntu-latest
     environment: staging
+    needs: [install]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,8 +43,17 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
 
+      - name: Lint
+        run: bun run lint
+
+      - name: Prettier
+        run: bun run prettier:check
+
       - name: Build
         run: bun run build
+
+      - name: Unit tests
+        run: bun run test:unit
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -39,6 +67,9 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
       # ─────────────────────────────────────────────────────────────────────
+
+      - name: Unlock SST (clear stale lock from previous runs)
+        run: bunx sst unlock --stage staging || true
 
       - name: Deploy
         run: bunx sst deploy --stage staging
