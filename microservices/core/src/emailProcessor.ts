@@ -3,12 +3,14 @@ import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import PostalMime from "postal-mime";
 import OpenAI from "openai";
 import { processConversationState } from "./application/conversation/conversationStateService";
+import { AutoReplyService } from "./application/reply/autoReplyService";
 import type { ConversationTypeEnum } from "@lettingsops/db";
 import { getDb, agencies } from "@lettingsops/db";
 import { eq } from "drizzle-orm";
 
 const s3 = new S3Client({});
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const autoReplyService = new AutoReplyService();
 
 export const handler = async (event: S3Event): Promise<void> => {
   console.log("Email processor triggered", JSON.stringify(event));
@@ -98,6 +100,16 @@ Respond with valid JSON only, no markdown.`;
     });
 
     console.log("Conversation state processed", JSON.stringify(result));
+
+    // 6. Send auto-reply to tenant
+    await autoReplyService.sendReply({
+      result,
+      tenantEmail,
+      agencyId: agency.id,
+      propertyRef: extractedFields.property_ref,
+    });
+
+    console.log("Auto-reply sent for conversation", result.conversationId);
   } catch (error) {
     console.error("Error processing email", error);
     throw error;
