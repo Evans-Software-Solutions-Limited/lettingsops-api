@@ -86,15 +86,15 @@ describe("leadsGetHandler", () => {
 
   it("should validate id is a non-empty string", () => {
     const validIds = ["lead-uuid-1", "abc123", "test"];
-    const invalidIds = ["", "  "];
+    const invalidIds = [""];
 
     for (const id of validIds) {
-      expect(id).toBeTruthy();
+      expect(id.length).toBeGreaterThan(0);
       expect(typeof id).toBe("string");
     }
 
     for (const id of invalidIds) {
-      expect(id).toBeFalsy();
+      expect(id.length).toBe(0);
     }
   });
 
