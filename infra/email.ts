@@ -13,10 +13,16 @@ export const emailBucket = new sst.aws.Bucket("LettingsOpsEmailBucket", {
     region.apply((regionName) => [
       {
         actions: ["s3:PutObject"],
-        principals: [{ type: "service" as const, identifiers: ["ses.amazonaws.com"] }],
+        principals: [
+          { type: "service" as const, identifiers: ["ses.amazonaws.com"] },
+        ],
         paths: ["*"],
         conditions: [
-          { test: "StringEquals" as const, variable: "aws:SourceAccount", values: [identity.accountId] },
+          {
+            test: "StringEquals" as const,
+            variable: "aws:SourceAccount",
+            values: [identity.accountId],
+          },
           {
             test: "StringEquals" as const,
             variable: "aws:SourceArn",
