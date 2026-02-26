@@ -14,12 +14,12 @@ export default defineConfig({
         "src/api.ts",
         "src/index.ts",
       ],
-      // Target 90% - increase as tests are added. Set to 0 for template to pass CI.
+      // Enforce 90% minimum coverage threshold across all files
       thresholds: {
-        lines: 0,
-        functions: 0,
-        branches: 0,
-        statements: 0,
+        lines: 90,
+        functions: 90,
+        branches: 90,
+        statements: 90,
       },
     },
   },
