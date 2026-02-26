@@ -72,7 +72,7 @@ describe("ViewingSlotsService", () => {
     }
   });
 
-  it("should support date range within reasonablewindows", () => {
+  it("should support date range within reasonable windows", () => {
     const query: SlotQuery = {
       propertyRef: "PROP001",
       from: "2024-06-15",
@@ -116,5 +116,19 @@ describe("ViewingSlotsService", () => {
       const endTime = new Date(slot.endsAt).getTime();
       expect(endTime).toBeGreaterThan(startTime);
     }
+  });
+
+  it("should throw error when not implemented", async () => {
+    const query: SlotQuery = {
+      propertyRef: "PROP001",
+      from: "2024-06-15",
+      to: "2024-06-20",
+    };
+
+    await expect(
+      ViewingSlotsService.decorator.viewingSlotsService.getAvailableSlots(
+        query,
+      ),
+    ).rejects.toThrow("Not implemented: calendar integration pending");
   });
 });

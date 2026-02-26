@@ -1,15 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { processConversationState } from "../conversationStateService";
-import { ConversationRepository } from "../../repositories/conversationRepository";
-import { AgencyRepository } from "../../repositories/agencyRepository";
-
-// Mock the repositories
-vi.mock("../../repositories/conversationRepository", () => ({
-  ConversationRepository: vi.fn(),
-}));
-vi.mock("../../repositories/agencyRepository", () => ({
-  AgencyRepository: vi.fn(),
-}));
 
 const NOW = new Date("2024-06-01T10:00:00.000Z");
 
@@ -53,40 +43,30 @@ const mockRequiredFields = [
   },
 ];
 
-describe("ConversationStateService", () => {
-  let mockConversationRepo: {
-    findByAgencyAndEmail: ReturnType<typeof vi.fn>;
-    create: ReturnType<typeof vi.fn>;
-    appendMessageId: ReturnType<typeof vi.fn>;
-    setCollectedFields: ReturnType<typeof vi.fn>;
-    markComplete: ReturnType<typeof vi.fn>;
-  };
-  let mockAgencyRepo: {
-    getRequiredFields: ReturnType<typeof vi.fn>;
-  };
+// Create mock instances
+const mockConversationRepo = {
+  findByAgencyAndEmail: vi.fn(),
+  create: vi.fn(),
+  appendMessageId: vi.fn(),
+  setCollectedFields: vi.fn(),
+  markComplete: vi.fn(),
+};
 
+const mockAgencyRepo = {
+  getRequiredFields: vi.fn(),
+};
+
+// Mock the repositories
+vi.mock("../../repositories/conversationRepository", () => ({
+  ConversationRepository: vi.fn(() => mockConversationRepo),
+}));
+vi.mock("../../repositories/agencyRepository", () => ({
+  AgencyRepository: vi.fn(() => mockAgencyRepo),
+}));
+
+describe("ConversationStateService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-
-    mockConversationRepo = {
-      findByAgencyAndEmail: vi.fn(),
-      create: vi.fn(),
-      appendMessageId: vi.fn(),
-      setCollectedFields: vi.fn(),
-      markComplete: vi.fn(),
-    };
-
-    mockAgencyRepo = {
-      getRequiredFields: vi.fn(),
-    };
-
-    // Mock the repository constructors
-    (
-      ConversationRepository as unknown as ReturnType<typeof vi.fn>
-    ).mockImplementation(() => mockConversationRepo);
-    (
-      AgencyRepository as unknown as ReturnType<typeof vi.fn>
-    ).mockImplementation(() => mockAgencyRepo);
   });
 
   describe("new conversation", () => {

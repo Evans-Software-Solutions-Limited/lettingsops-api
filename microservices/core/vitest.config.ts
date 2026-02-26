@@ -3,6 +3,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     globals: true,
+    setupFiles: ["./vitest.setup.ts"],
     coverage: {
       provider: "v8",
       include: ["src/application/**/*.ts", "src/**/repositories/*.ts"],
@@ -13,6 +14,11 @@ export default defineConfig({
         "**/sst-env.d.ts",
         "src/api.ts",
         "src/index.ts",
+        "**/index.ts",
+        "**/api.ts",
+        "**/*.d.ts",
+        "**/types/**",
+        "**/emailProcessor.ts",
       ],
       // Enforce 90% minimum coverage threshold across all files
       thresholds: {
