@@ -1,15 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { processConversationState } from "../conversationStateService";
-import { ConversationRepository } from "../../repositories/conversationRepository";
-import { AgencyRepository } from "../../repositories/agencyRepository";
-
-// Mock the repositories
-vi.mock("../../repositories/conversationRepository", () => ({
-  ConversationRepository: vi.fn(),
-}));
-vi.mock("../../repositories/agencyRepository", () => ({
-  AgencyRepository: vi.fn(),
-}));
+import {
+  processConversationState,
+  ConversationStateService,
+} from "../conversationStateService";
 
 const NOW = new Date("2024-06-01T10:00:00.000Z");
 
@@ -53,40 +46,30 @@ const mockRequiredFields = [
   },
 ];
 
-describe("ConversationStateService", () => {
-  let mockConversationRepo: {
-    findByAgencyAndEmail: ReturnType<typeof vi.fn>;
-    create: ReturnType<typeof vi.fn>;
-    appendMessageId: ReturnType<typeof vi.fn>;
-    setCollectedFields: ReturnType<typeof vi.fn>;
-    markComplete: ReturnType<typeof vi.fn>;
-  };
-  let mockAgencyRepo: {
-    getRequiredFields: ReturnType<typeof vi.fn>;
-  };
+// Create mock instances
+const mockConversationRepo = {
+  findByAgencyAndEmail: vi.fn(),
+  create: vi.fn(),
+  appendMessageId: vi.fn(),
+  setCollectedFields: vi.fn(),
+  markComplete: vi.fn(),
+};
 
+const mockAgencyRepo = {
+  getRequiredFields: vi.fn(),
+};
+
+// Mock the repositories
+vi.mock("../../repositories/conversationRepository", () => ({
+  ConversationRepository: vi.fn(() => mockConversationRepo),
+}));
+vi.mock("../../repositories/agencyRepository", () => ({
+  AgencyRepository: vi.fn(() => mockAgencyRepo),
+}));
+
+describe("ConversationStateService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-
-    mockConversationRepo = {
-      findByAgencyAndEmail: vi.fn(),
-      create: vi.fn(),
-      appendMessageId: vi.fn(),
-      setCollectedFields: vi.fn(),
-      markComplete: vi.fn(),
-    };
-
-    mockAgencyRepo = {
-      getRequiredFields: vi.fn(),
-    };
-
-    // Mock the repository constructors
-    (
-      ConversationRepository as unknown as ReturnType<typeof vi.fn>
-    ).mockImplementation(() => mockConversationRepo);
-    (
-      AgencyRepository as unknown as ReturnType<typeof vi.fn>
-    ).mockImplementation(() => mockAgencyRepo);
   });
 
   describe("new conversation", () => {
@@ -162,6 +145,24 @@ describe("ConversationStateService", () => {
       });
       expect(result.missingFields).toHaveLength(0);
       expect(result.isComplete).toBe(true);
+    });
+
+    it("uses empty object when existing conversation has null collectedFields", async () => {
+      mockConversationRepo.findByAgencyAndEmail.mockResolvedValue({
+        ...mockConversation,
+        collectedFields: null,
+      });
+      mockAgencyRepo.getRequiredFields.mockResolvedValue(mockRequiredFields);
+
+      const result = await processConversationState({
+        agencyId: "agency-uuid-1",
+        tenantEmail: "tenant@example.com",
+        messageId: "msg-002",
+        extractedFields: { name: "Jane" },
+        conversationType: "VIEWING_ENQUIRY",
+      });
+
+      expect(result.collectedFields).toMatchObject({ name: "Jane" });
     });
   });
 
@@ -320,6 +321,32 @@ describe("ConversationStateService", () => {
       expect(result.isComplete).toBe(true);
       expect(result.missingFields).toHaveLength(0);
       expect(mockConversationRepo.markComplete).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe("Elysia decorator", () => {
+    it("process() delegates to processConversationState and returns same result", async () => {
+      mockConversationRepo.findByAgencyAndEmail.mockResolvedValue(
+        mockConversation,
+      );
+      mockAgencyRepo.getRequiredFields.mockResolvedValue(mockRequiredFields);
+
+      const input = {
+        agencyId: "agency-uuid-1",
+        tenantEmail: "tenant@example.com",
+        messageId: "msg-002",
+        extractedFields: { email: "john@example.com", phone: "+447700900001" },
+        conversationType: "VIEWING_ENQUIRY" as const,
+      };
+
+      const result =
+        await ConversationStateService.decorator.conversationStateService.process(
+          input,
+        );
+
+      expect(result.conversationId).toBe("conv-uuid-1");
+      expect(result.isComplete).toBe(true);
+      expect(result.missingFields).toHaveLength(0);
     });
   });
 });

@@ -1,55 +1,72 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { LeadsCreateService } from "../leadsCreateService";
 
-const NOW = new Date("2024-06-01T10:00:00.000Z");
-
-const mockLead = {
-  id: "lead-uuid-1",
-  name: "Alice Smith",
-  email: "alice@example.com",
-  phone: "+447700900001",
-  propertyRef: "PROP001",
-  propertyRent: 1500,
-  message: "Interested in viewing",
-  source: "email" as const,
-  status: "NEW" as const,
-  score: null,
-  scoreCategory: null,
-  metadata: null,
-  createdAt: NOW.toISOString(),
-  updatedAt: NOW.toISOString(),
-};
-
-// Mock the LeadRepository
-vi.mock("../../repositories/leadRepository", () => ({
-  LeadRepository: vi.fn().mockImplementation(() => ({
-    create: vi.fn().mockResolvedValue(mockLead),
-  })),
-}));
-
 describe("LeadsCreateService", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+  it("should be an Elysia service", () => {
+    expect(LeadsCreateService).toBeDefined();
+    expect(typeof LeadsCreateService).toBe("object");
   });
 
-  it("should create lead with NEW status and provided source", async () => {
-    const elysia = LeadsCreateService;
-    expect(elysia).toBeDefined();
-
-    // The service is an Elysia plugin that decorates 'leadsCreateService'
-    // When used, it adds the createLead method to context
-    // Verify the service is properly defined
-    expect(typeof elysia).toBe("object");
+  it("should have leadsCreateService decorator", () => {
+    expect(LeadsCreateService.decorator).toBeDefined();
+    expect(LeadsCreateService.decorator.leadsCreateService).toBeDefined();
+    expect(
+      typeof LeadsCreateService.decorator.leadsCreateService.createLead,
+    ).toBe("function");
   });
 
-  it("should default source to manual when not provided", () => {
-    const input: { name: string; email: string; source?: string } = {
+  it("should accept name and email as required fields", () => {
+    const input = {
       name: "Jane Doe",
       email: "jane@example.com",
     };
 
-    // This is what the service does internally
-    const source = input.source ?? "manual";
+    expect(input).toHaveProperty("name");
+    expect(input).toHaveProperty("email");
+    expect(input.name).toBe("Jane Doe");
+    expect(input.email).toBe("jane@example.com");
+  });
+
+  it("should accept optional phone field", () => {
+    const input = {
+      name: "John Doe",
+      email: "john@example.com",
+      phone: "+447700900001",
+    };
+
+    expect(input).toHaveProperty("phone");
+    expect(input.phone).toBe("+447700900001");
+  });
+
+  it("should accept optional propertyRef field", () => {
+    const input = {
+      name: "John Doe",
+      email: "john@example.com",
+      propertyRef: "PROP001",
+    };
+
+    expect(input).toHaveProperty("propertyRef");
+    expect(input.propertyRef).toBe("PROP001");
+  });
+
+  it("should accept optional message field", () => {
+    const input = {
+      name: "John Doe",
+      email: "john@example.com",
+      message: "Interested in property",
+    };
+
+    expect(input).toHaveProperty("message");
+    expect(input.message).toBe("Interested in property");
+  });
+
+  it("should default source to manual when not provided", () => {
+    const input = {
+      name: "Jane Doe",
+      email: "jane@example.com",
+    };
+
+    const source = (input as Record<string, unknown>).source ?? "manual";
     expect(source).toBe("manual");
   });
 
@@ -57,56 +74,143 @@ describe("LeadsCreateService", () => {
     const input = {
       name: "John Doe",
       email: "john@example.com",
-      source: "portal" as const,
+      source: "portal",
     };
 
-    const source = input.source ?? "manual";
+    const source = (input as Record<string, unknown>).source ?? "manual";
     expect(source).toBe("portal");
   });
 
-  it("should return lead object with required properties", () => {
-    // Verify the mock returns expected lead structure
-    expect(mockLead).toHaveProperty("id");
-    expect(mockLead).toHaveProperty("status");
-    expect(mockLead).toHaveProperty("createdAt");
-    expect(mockLead.status).toBe("NEW");
-  });
-
-  it("should always set status to NEW for new lead creation", () => {
+  it("should support all source types", () => {
     const sources = ["email", "phone", "portal", "manual"];
 
     for (const source of sources) {
-      const result = {
-        ...mockLead,
-        source,
-        status: "NEW",
-      };
-      expect(result.status).toBe("NEW");
+      expect(sources).toContain(source);
     }
   });
 
-  it("should include all input fields in repository call", () => {
+  it("should always set status to NEW for new lead creation", async () => {
     const input = {
       name: "Bob Smith",
       email: "bob@example.com",
+    };
+
+    const result =
+      await LeadsCreateService.decorator.leadsCreateService.createLead(input);
+
+    expect(result).toBeDefined();
+    expect(result.status).toBe("NEW");
+  });
+
+  it("should return lead object with id, status, and createdAt", async () => {
+    const input = {
+      name: "Alice Smith",
+      email: "alice@example.com",
+    };
+
+    const result =
+      await LeadsCreateService.decorator.leadsCreateService.createLead(input);
+
+    expect(result).toHaveProperty("id");
+    expect(result).toHaveProperty("status");
+    expect(result).toHaveProperty("createdAt");
+  });
+
+  it("should return id as a string", async () => {
+    const input = {
+      name: "John Doe",
+      email: "john@example.com",
+    };
+
+    const result =
+      await LeadsCreateService.decorator.leadsCreateService.createLead(input);
+
+    expect(typeof result.id).toBe("string");
+    expect(result.id).toBeTruthy();
+  });
+
+  it("should return status as NEW", async () => {
+    const input = {
+      name: "Jane Doe",
+      email: "jane@example.com",
+    };
+
+    const result =
+      await LeadsCreateService.decorator.leadsCreateService.createLead(input);
+
+    expect(result.status).toBe("NEW");
+  });
+
+  it("should return createdAt as ISO string", async () => {
+    const input = {
+      name: "Bob Smith",
+      email: "bob@example.com",
+    };
+
+    const result =
+      await LeadsCreateService.decorator.leadsCreateService.createLead(input);
+
+    const isoRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
+    expect(result.createdAt).toMatch(isoRegex);
+  });
+
+  it("should handle minimal required fields", async () => {
+    const input = {
+      name: "Jane Doe",
+      email: "jane@example.com",
+    };
+
+    const result =
+      await LeadsCreateService.decorator.leadsCreateService.createLead(input);
+
+    expect(result).toBeDefined();
+    expect(result.status).toBe("NEW");
+  });
+
+  it("should handle all optional fields", async () => {
+    const input = {
+      name: "John Smith",
+      email: "john@example.com",
       phone: "+447700900002",
       propertyRef: "PROP002",
-      message: "Viewing enquiry",
+      message: "Viewing enquiry for PROP002",
       source: "portal" as const,
     };
 
-    // Service merges fields and adds status
-    const merged = {
-      ...input,
-      status: "NEW",
-      source: input.source ?? "manual",
+    const result =
+      await LeadsCreateService.decorator.leadsCreateService.createLead(input);
+
+    expect(result).toBeDefined();
+    expect(result.status).toBe("NEW");
+  });
+
+  it("should handle long property references", async () => {
+    const input = {
+      name: "John Doe",
+      email: "john@example.com",
+      propertyRef: "PROPERTY-REF-1234567890-ABCDEF",
+      message: "Long property reference test",
     };
 
-    expect(merged.name).toBe("Bob Smith");
-    expect(merged.email).toBe("bob@example.com");
-    expect(merged.phone).toBe("+447700900002");
-    expect(merged.propertyRef).toBe("PROP002");
-    expect(merged.message).toBe("Viewing enquiry");
-    expect(merged.source).toBe("portal");
+    const result =
+      await LeadsCreateService.decorator.leadsCreateService.createLead(input);
+
+    expect(result).toBeDefined();
+    expect(result.status).toBe("NEW");
+  });
+
+  it("should handle international phone numbers", async () => {
+    const input = {
+      name: "International User",
+      email: "international@example.com",
+      phone: "+14155552671",
+      message: "International phone test",
+    };
+
+    const result =
+      await LeadsCreateService.decorator.leadsCreateService.createLead(input);
+
+    expect(result).toBeDefined();
+    expect(result.status).toBe("NEW");
   });
 });

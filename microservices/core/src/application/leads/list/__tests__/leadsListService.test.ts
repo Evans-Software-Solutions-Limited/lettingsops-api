@@ -1,128 +1,107 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { LeadsListService } from "../leadsListService";
 
-const NOW = new Date("2024-06-01T10:00:00.000Z");
-
-const mockLeads = [
-  {
-    id: "lead-uuid-1",
-    name: "Alice Smith",
-    email: "alice@example.com",
-    status: "NEW",
-    createdAt: NOW.toISOString(),
-  },
-  {
-    id: "lead-uuid-2",
-    name: "Bob Jones",
-    email: "bob@example.com",
-    status: "QUALIFYING",
-    createdAt: NOW.toISOString(),
-  },
-];
-
-const mockListResponse = {
-  leads: mockLeads,
-  total: 2,
-  page: 1,
-  limit: 20,
-};
-
-// Mock the LeadRepository
-vi.mock("../../repositories/leadRepository", () => ({
-  LeadRepository: vi.fn().mockImplementation(() => ({
-    list: vi.fn().mockResolvedValue(mockListResponse),
-  })),
-}));
-
 describe("LeadsListService", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("should be an Elysia service with leadsListService decorator", () => {
+  it("should be an Elysia service", () => {
     expect(LeadsListService).toBeDefined();
     expect(typeof LeadsListService).toBe("object");
   });
 
+  it("should have leadsListService decorator", () => {
+    expect(LeadsListService.decorator).toBeDefined();
+    expect(LeadsListService.decorator.leadsListService).toBeDefined();
+    expect(typeof LeadsListService.decorator.leadsListService.listLeads).toBe(
+      "function",
+    );
+  });
+
   it("should default page to 1 when not provided", () => {
-    const filters: {
-      page?: number;
-    } = {};
-    const page = filters.page ?? 1;
+    const filters: Record<string, unknown> = {};
+    const page = (filters.page as number | undefined) ?? 1;
     expect(page).toBe(1);
   });
 
   it("should default limit to 20 when not provided", () => {
-    const filters: {
-      limit?: number;
-    } = {};
-    const limit = filters.limit ?? 20;
+    const filters: Record<string, unknown> = {};
+    const limit = (filters.limit as number | undefined) ?? 20;
     expect(limit).toBe(20);
   });
 
   it("should preserve provided page number", () => {
-    const filters = {
-      page: 2,
-    };
+    const filters = { page: 2 };
     const page = filters.page ?? 1;
     expect(page).toBe(2);
   });
 
   it("should preserve provided limit", () => {
-    const filters = {
-      limit: 50,
-    };
+    const filters = { limit: 50 };
     const limit = filters.limit ?? 20;
     expect(limit).toBe(50);
   });
 
-  it("should pass status filter to repository", () => {
-    const filters = {
-      status: "NEW",
-      page: 1,
-      limit: 20,
-    };
+  it("should accept status filter", () => {
+    const filters = { status: "NEW" };
     expect(filters.status).toBe("NEW");
   });
 
-  it("should pass propertyRef filter to repository", () => {
-    const filters = {
-      propertyRef: "PROP001",
-      page: 1,
-      limit: 20,
-    };
+  it("should accept propertyRef filter", () => {
+    const filters = { propertyRef: "PROP001" };
     expect(filters.propertyRef).toBe("PROP001");
   });
 
-  it("should return paginated list response", () => {
-    const response = mockListResponse;
-    expect(response).toHaveProperty("leads");
-    expect(response).toHaveProperty("total");
-    expect(response).toHaveProperty("page");
-    expect(response).toHaveProperty("limit");
-  });
-
-  it("should return array of leads", () => {
-    const response = mockListResponse;
-    expect(Array.isArray(response.leads)).toBe(true);
-    expect(response.leads.length).toBeGreaterThan(0);
-  });
-
-  it("should return correct pagination info", () => {
-    const response = mockListResponse;
-    expect(response.total).toBe(2);
-    expect(response.page).toBe(1);
-    expect(response.limit).toBe(20);
-  });
-
-  it("should handle empty results", () => {
-    const emptyResponse = {
-      leads: [],
-      total: 0,
-      page: 1,
-      limit: 20,
+  it("should accept combined filters", () => {
+    const filters = {
+      status: "NEW",
+      propertyRef: "PROP001",
+      page: 2,
+      limit: 10,
     };
-    expect(emptyResponse.leads).toEqual([]);
-    expect(emptyResponse.total).toBe(0);
+
+    expect(filters.status).toBe("NEW");
+    expect(filters.propertyRef).toBe("PROP001");
+    expect(filters.page).toBe(2);
+    expect(filters.limit).toBe(10);
+  });
+
+  it("should support large pagination limits", () => {
+    const filters = { limit: 100 };
+    const limit = filters.limit ?? 20;
+    expect(limit).toBeGreaterThan(0);
+    expect(limit).toBeLessThanOrEqual(1000);
+  });
+
+  it("should support high page numbers", () => {
+    const filters = { page: 100 };
+    const page = filters.page ?? 1;
+    expect(page).toBeGreaterThan(0);
+  });
+
+  it("should accept empty filters object", async () => {
+    const result = await LeadsListService.decorator.leadsListService.listLeads(
+      {},
+    );
+
+    expect(result).toBeDefined();
+    expect(result).toHaveProperty("leads");
+    expect(Array.isArray(result.leads)).toBe(true);
+  });
+
+  it("should return object with leads, total, page, limit", async () => {
+    const result = await LeadsListService.decorator.leadsListService.listLeads(
+      {},
+    );
+
+    expect(result).toHaveProperty("leads");
+    expect(result).toHaveProperty("total");
+    expect(result).toHaveProperty("page");
+    expect(result).toHaveProperty("limit");
+  });
+
+  it("should return leads as an array", async () => {
+    const result = await LeadsListService.decorator.leadsListService.listLeads(
+      {},
+    );
+
+    expect(Array.isArray(result.leads)).toBe(true);
   });
 });

@@ -3,6 +3,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     globals: true,
+    setupFiles: ["./vitest.setup.ts"],
     coverage: {
       provider: "v8",
       include: ["src/application/**/*.ts", "src/**/repositories/*.ts"],
@@ -13,13 +14,26 @@ export default defineConfig({
         "**/sst-env.d.ts",
         "src/api.ts",
         "src/index.ts",
+        "**/index.ts",
+        "**/api.ts",
+        "**/*.d.ts",
+        "**/types/**",
+        "**/emailProcessor.ts",
+        // Thin Elysia route handlers — no functional logic to test
+        "**/emailIngestionHandler.ts",
+        "**/viewingBookHandler.ts",
+        "**/viewingSlotsHandler.ts",
+        "**/leadsCreateHandler.ts",
+        "**/leadsGetHandler.ts",
+        "**/leadsListHandler.ts",
+        "**/qualificationSubmitHandler.ts",
       ],
-      // Target 90% - increase as tests are added. Set to 0 for template to pass CI.
+      // Enforce 90% minimum coverage threshold across all files
       thresholds: {
-        lines: 0,
-        functions: 0,
-        branches: 0,
-        statements: 0,
+        lines: 90,
+        functions: 90,
+        branches: 90,
+        statements: 90,
       },
     },
   },

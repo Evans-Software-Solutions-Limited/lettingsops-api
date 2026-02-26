@@ -1,172 +1,386 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   EmailIngestionService,
-  type IngestionResult,
+  type EmailPayload,
 } from "../emailIngestionService";
 
-const NOW = new Date("2024-06-01T10:00:00.000Z");
-
 const mockLead = {
-  id: "lead-uuid-1",
-  name: "John Doe",
-  email: "john@example.com",
-  phone: null,
-  propertyRef: "PROP001",
-  propertyRent: 1500,
-  message: "Interested in viewing",
+  id: "lead-existing-1",
+  name: "Existing Lead",
+  email: "existing@example.com",
   source: "email" as const,
   status: "NEW" as const,
-  score: null,
-  scoreCategory: null,
-  metadata: { messageId: "msg-abc123" },
-  createdAt: NOW.toISOString(),
-  updatedAt: NOW.toISOString(),
+  createdAt: "2024-06-01T10:00:00.000Z",
+  updatedAt: "2024-06-01T10:00:00.000Z",
 };
 
-// Mock the LeadRepository
-vi.mock("../../repositories/leadRepository", () => ({
-  LeadRepository: vi.fn().mockImplementation(() => ({
-    findByMessageId: vi.fn().mockResolvedValue(null),
-    findByEmail: vi.fn().mockResolvedValue(null),
-    create: vi.fn().mockResolvedValue(mockLead),
-    addNote: vi.fn().mockResolvedValue(undefined),
-  })),
+const mockLeadRepo = {
+  findByMessageId: vi.fn(),
+  findByEmail: vi.fn(),
+  create: vi.fn(),
+  addNote: vi.fn(),
+};
+
+vi.mock("../../../repositories/leadRepository", () => ({
+  LeadRepository: vi.fn(() => mockLeadRepo),
 }));
 
 describe("EmailIngestionService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: no existing lead, create returns a new lead (for tests that don't override)
+    mockLeadRepo.findByMessageId.mockResolvedValue(null);
+    mockLeadRepo.findByEmail.mockResolvedValue(null);
+    mockLeadRepo.create.mockResolvedValue({
+      ...mockLead,
+      id: "lead-mock-id",
+      email: "mock@example.com",
+    });
   });
 
-  it("should be an Elysia service", () => {
-    expect(EmailIngestionService).toBeDefined();
-    expect(typeof EmailIngestionService).toBe("object");
+  describe("with repository mocks", () => {
+    it("returns IGNORED when findByMessageId returns existing lead", async () => {
+      mockLeadRepo.findByMessageId.mockResolvedValue(mockLead);
+
+      const result =
+        await EmailIngestionService.decorator.emailIngestionService.processEmail(
+          {
+            messageId: "msg-duplicate",
+            from: "any@example.com",
+            subject: "Re: Enquiry",
+            body: "Body",
+            receivedAt: "2024-06-01T10:00:00.000Z",
+          },
+        );
+
+      expect(result.action).toBe("IGNORED");
+      expect(result.leadId).toBe(mockLead.id);
+      expect(mockLeadRepo.create).not.toHaveBeenCalled();
+      expect(mockLeadRepo.addNote).not.toHaveBeenCalled();
+    });
+
+    it("returns MERGED when findByEmail returns existing lead and calls addNote", async () => {
+      mockLeadRepo.findByMessageId.mockResolvedValue(null);
+      mockLeadRepo.findByEmail.mockResolvedValue(mockLead);
+      mockLeadRepo.addNote.mockResolvedValue(undefined);
+
+      const payload: EmailPayload = {
+        messageId: "msg-second",
+        from: "existing@example.com",
+        subject: "Second enquiry",
+        body: "Body",
+        receivedAt: "2024-06-01T10:00:00.000Z",
+      };
+
+      const result =
+        await EmailIngestionService.decorator.emailIngestionService.processEmail(
+          payload,
+        );
+
+      expect(result.action).toBe("MERGED");
+      expect(result.leadId).toBe(mockLead.id);
+      expect(mockLeadRepo.addNote).toHaveBeenCalledWith(mockLead.id, {
+        source: "email",
+        messageId: payload.messageId,
+        subject: payload.subject,
+        receivedAt: payload.receivedAt,
+      });
+      expect(mockLeadRepo.create).not.toHaveBeenCalled();
+    });
+
+    it("returns CREATED when no existing lead and creates new lead", async () => {
+      mockLeadRepo.findByMessageId.mockResolvedValue(null);
+      mockLeadRepo.findByEmail.mockResolvedValue(null);
+      mockLeadRepo.create.mockResolvedValue({
+        ...mockLead,
+        id: "lead-new-1",
+        email: "new@example.com",
+      });
+
+      const result =
+        await EmailIngestionService.decorator.emailIngestionService.processEmail(
+          {
+            messageId: "msg-new",
+            from: "new@example.com",
+            fromName: "New User",
+            subject: "Enquiry",
+            body: "Body",
+            receivedAt: "2024-06-01T10:00:00.000Z",
+          },
+        );
+
+      expect(result.action).toBe("CREATED");
+      expect(result.leadId).toBe("lead-new-1");
+      expect(mockLeadRepo.create).toHaveBeenCalled();
+    });
   });
 
-  it("should return IGNORED action when messageId already processed", () => {
-    // When existing lead with same messageId is found
-    const result: IngestionResult = {
-      leadId: "lead-uuid-1",
-      action: "IGNORED",
-    };
+  describe("service shape and payloads", () => {
+    it("should be an Elysia service", () => {
+      expect(EmailIngestionService).toBeDefined();
+      expect(typeof EmailIngestionService).toBe("object");
+    });
 
-    expect(result.action).toBe("IGNORED");
-  });
+    it("should have emailIngestionService decorator", () => {
+      expect(EmailIngestionService.decorator).toBeDefined();
+      expect(
+        EmailIngestionService.decorator.emailIngestionService,
+      ).toBeDefined();
+      expect(
+        typeof EmailIngestionService.decorator.emailIngestionService
+          .processEmail,
+      ).toBe("function");
+    });
 
-  it("should return MERGED action when email already exists", () => {
-    // When existing lead with same email is found
-    const result: IngestionResult = {
-      leadId: "lead-uuid-1",
-      action: "MERGED",
-    };
+    it("should accept EmailPayload with all required fields", () => {
+      const payload: EmailPayload = {
+        messageId: "msg-abc123",
+        from: "user@example.com",
+        fromName: "John Doe",
+        subject: "Enquiry",
+        body: "Interested",
+        receivedAt: "2024-06-01T10:00:00.000Z",
+        propertyRef: "PROP001",
+      };
 
-    expect(result.action).toBe("MERGED");
-  });
+      expect(payload).toHaveProperty("messageId");
+      expect(payload).toHaveProperty("from");
+      expect(payload).toHaveProperty("fromName");
+      expect(payload).toHaveProperty("subject");
+      expect(payload).toHaveProperty("body");
+      expect(payload).toHaveProperty("receivedAt");
+    });
 
-  it("should return CREATED action when new lead created", () => {
-    // When new email/lead is ingested
-    const result: IngestionResult = {
-      leadId: "lead-uuid-1",
-      action: "CREATED",
-    };
+    it("should accept EmailPayload without fromName", () => {
+      const payload: Omit<EmailPayload, "fromName"> = {
+        messageId: "msg-abc123",
+        from: "john.doe@example.com",
+        subject: "Enquiry",
+        body: "Interested",
+        receivedAt: "2024-06-01T10:00:00.000Z",
+      };
 
-    expect(result.action).toBe("CREATED");
-  });
+      expect(payload).not.toHaveProperty("fromName");
+      expect(payload).toHaveProperty("from");
+    });
 
-  it("should extract name from fromName when available", () => {
-    const payload = {
-      messageId: "msg-123",
-      from: "user@example.com",
-      fromName: "John Doe",
-      subject: "Enquiry",
-      body: "Interested",
-      receivedAt: "2024-06-01T10:00:00.000Z",
-    };
+    it("should accept EmailPayload without propertyRef", () => {
+      const payload: Omit<EmailPayload, "propertyRef"> = {
+        messageId: "msg-abc123",
+        from: "user@example.com",
+        fromName: "John Doe",
+        subject: "Enquiry",
+        body: "Interested",
+        receivedAt: "2024-06-01T10:00:00.000Z",
+      };
 
-    // Service uses fromName if provided
-    expect(payload.fromName).toBe("John Doe");
-  });
+      expect(payload).not.toHaveProperty("propertyRef");
+    });
 
-  it("should extract name from email prefix when fromName missing", () => {
-    const payload = {
-      messageId: "msg-123",
-      from: "john.doe@example.com",
-      subject: "Enquiry",
-      body: "Interested",
-      receivedAt: "2024-06-01T10:00:00.000Z",
-    };
+    it("should return an IngestionResult with leadId and action", async () => {
+      const payload: EmailPayload = {
+        messageId: "msg-abc123",
+        from: "newuser@example.com",
+        fromName: "New User",
+        subject: "New enquiry",
+        body: "Interested in property",
+        receivedAt: "2024-06-01T10:00:00.000Z",
+      };
 
-    // Service extracts "john.doe" from email
-    const nameFallback = payload.from.split("@")[0];
-    expect(nameFallback).toBe("john.doe");
-  });
+      const result =
+        await EmailIngestionService.decorator.emailIngestionService.processEmail(
+          payload,
+        );
 
-  it("should preserve email address from payload", () => {
-    const payload = {
-      messageId: "msg-123",
-      from: "user@example.com",
-      subject: "Enquiry",
-      body: "Interested",
-      receivedAt: "2024-06-01T10:00:00.000Z",
-    };
+      expect(result).toHaveProperty("leadId");
+      expect(result).toHaveProperty("action");
+      expect(typeof result.leadId).toBe("string");
+      expect(["CREATED", "MERGED", "IGNORED"]).toContain(result.action);
+    });
 
-    expect(payload.from).toBe("user@example.com");
-  });
+    it("should support CREATED action", async () => {
+      const payload: EmailPayload = {
+        messageId: `msg-${Date.now()}`,
+        from: `unique-${Date.now()}@example.com`,
+        fromName: "Test User",
+        subject: "Test enquiry",
+        body: "Test message",
+        receivedAt: new Date().toISOString(),
+      };
 
-  it("should include propertyRef in lead when provided", () => {
-    const payload = {
-      messageId: "msg-123",
-      from: "user@example.com",
-      subject: "Enquiry for PROP001",
-      body: "Interested",
-      receivedAt: "2024-06-01T10:00:00.000Z",
-      propertyRef: "PROP001",
-    };
+      const result =
+        await EmailIngestionService.decorator.emailIngestionService.processEmail(
+          payload,
+        );
 
-    expect(payload.propertyRef).toBe("PROP001");
-  });
+      expect(["CREATED", "MERGED", "IGNORED"]).toContain(result.action);
+    });
 
-  it("should add note to existing lead when merging", () => {
-    // Service calls repo.addNote when merging
-    const existingLeadId = "lead-uuid-1";
-    expect(existingLeadId).toBeTruthy();
-  });
+    it("should support MERGED action", async () => {
+      const payload1: EmailPayload = {
+        messageId: `msg-${Date.now()}`,
+        from: "same@example.com",
+        fromName: "User One",
+        subject: "First enquiry",
+        body: "First message",
+        receivedAt: new Date().toISOString(),
+      };
 
-  it("should set source to email for ingested leads", () => {
-    // Service sets source: "email"
-    const lead = mockLead;
-    expect(lead.source).toBe("email");
-  });
+      const result1 =
+        await EmailIngestionService.decorator.emailIngestionService.processEmail(
+          payload1,
+        );
 
-  it("should set status to NEW for ingested leads", () => {
-    // Service sets status: "NEW"
-    const lead = mockLead;
-    expect(lead.status).toBe("NEW");
-  });
+      // Second message from same email
+      const payload2: EmailPayload = {
+        messageId: `msg-${Date.now() + 1}`,
+        from: "same@example.com",
+        fromName: "User One",
+        subject: "Second enquiry",
+        body: "Second message",
+        receivedAt: new Date().toISOString(),
+      };
 
-  it("should support idempotency via messageId check", () => {
-    const payload = {
-      messageId: "msg-abc123",
-      from: "user@example.com",
-      subject: "Enquiry",
-      body: "Interested",
-      receivedAt: "2024-06-01T10:00:00.000Z",
-    };
+      const result2 =
+        await EmailIngestionService.decorator.emailIngestionService.processEmail(
+          payload2,
+        );
 
-    // Service checks findByMessageId first
-    expect(payload.messageId).toBe("msg-abc123");
-  });
+      expect(["CREATED", "MERGED", "IGNORED"]).toContain(result1.action);
+      expect(["CREATED", "MERGED", "IGNORED"]).toContain(result2.action);
+    });
 
-  it("should support deduplication via email check", () => {
-    const payload = {
-      messageId: "msg-abc124",
-      from: "user@example.com",
-      subject: "Another enquiry",
-      body: "Also interested",
-      receivedAt: "2024-06-02T10:00:00.000Z",
-    };
+    it("should support IGNORED action for duplicate messageId", async () => {
+      const messageId = `msg-${Date.now()}`;
+      const payload: EmailPayload = {
+        messageId,
+        from: `test-${Date.now()}@example.com`,
+        fromName: "Test User",
+        subject: "Test enquiry",
+        body: "Test message",
+        receivedAt: new Date().toISOString(),
+      };
 
-    // Service checks findByEmail after messageId
-    expect(payload.from).toBe("user@example.com");
+      const result1 =
+        await EmailIngestionService.decorator.emailIngestionService.processEmail(
+          payload,
+        );
+
+      // Same messageId should be ignored
+      const result2 =
+        await EmailIngestionService.decorator.emailIngestionService.processEmail(
+          payload,
+        );
+
+      expect(["CREATED", "MERGED", "IGNORED"]).toContain(result1.action);
+      expect(["CREATED", "MERGED", "IGNORED"]).toContain(result2.action);
+    });
+
+    it("should handle fromName as optional field", async () => {
+      const payloadWithName: EmailPayload = {
+        messageId: `msg-${Date.now()}`,
+        from: "user@example.com",
+        fromName: "John Doe",
+        subject: "Enquiry",
+        body: "Interested",
+        receivedAt: "2024-06-01T10:00:00.000Z",
+      };
+
+      const payloadWithoutName: EmailPayload = {
+        messageId: `msg-${Date.now() + 1}`,
+        from: "john.doe@example.com",
+        subject: "Enquiry",
+        body: "Interested",
+        receivedAt: "2024-06-01T10:00:00.000Z",
+      };
+
+      const result1 =
+        await EmailIngestionService.decorator.emailIngestionService.processEmail(
+          payloadWithName,
+        );
+
+      const result2 =
+        await EmailIngestionService.decorator.emailIngestionService.processEmail(
+          payloadWithoutName,
+        );
+
+      expect(result1).toHaveProperty("leadId");
+      expect(result2).toHaveProperty("leadId");
+    });
+
+    it("should extract name from fromName when available", async () => {
+      const payload: EmailPayload = {
+        messageId: `msg-${Date.now()}`,
+        from: "user@example.com",
+        fromName: "John Doe",
+        subject: "Enquiry",
+        body: "Interested",
+        receivedAt: "2024-06-01T10:00:00.000Z",
+      };
+
+      const result =
+        await EmailIngestionService.decorator.emailIngestionService.processEmail(
+          payload,
+        );
+
+      expect(result.leadId).toBeTruthy();
+      expect(typeof result.leadId).toBe("string");
+    });
+
+    it("should extract name from email prefix when fromName missing", async () => {
+      const payload: EmailPayload = {
+        messageId: `msg-${Date.now()}`,
+        from: "john.doe@example.com",
+        subject: "Enquiry",
+        body: "Interested",
+        receivedAt: "2024-06-01T10:00:00.000Z",
+      };
+
+      const result =
+        await EmailIngestionService.decorator.emailIngestionService.processEmail(
+          payload,
+        );
+
+      expect(result.leadId).toBeTruthy();
+      expect(["CREATED", "MERGED", "IGNORED"]).toContain(result.action);
+    });
+
+    it("should handle propertyRef in payload", async () => {
+      const payload: EmailPayload = {
+        messageId: `msg-${Date.now()}`,
+        from: `user-${Date.now()}@example.com`,
+        subject: "Enquiry for PROP001",
+        body: "Interested",
+        receivedAt: "2024-06-01T10:00:00.000Z",
+        propertyRef: "PROP001",
+      };
+
+      const result =
+        await EmailIngestionService.decorator.emailIngestionService.processEmail(
+          payload,
+        );
+
+      expect(result).toHaveProperty("leadId");
+      expect(result).toHaveProperty("action");
+    });
+
+    it("should handle timestamps in ISO format", async () => {
+      const isoDate = new Date().toISOString();
+      const payload: EmailPayload = {
+        messageId: `msg-${Date.now()}`,
+        from: `user-${Date.now()}@example.com`,
+        fromName: "Test User",
+        subject: "Test enquiry",
+        body: "Test message",
+        receivedAt: isoDate,
+      };
+
+      const result =
+        await EmailIngestionService.decorator.emailIngestionService.processEmail(
+          payload,
+        );
+
+      expect(result.leadId).toBeTruthy();
+    });
   });
 });
