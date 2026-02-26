@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { getStatusBadgeClass, formatDateShort } from "@/lib/utils";
 
 export interface Lead {
   id: string;
@@ -23,16 +24,6 @@ interface LeadsListProps {
   onStatusFilter: (status: string) => void;
 }
 
-const STATUS_STYLES: Record<string, string> = {
-  NEW: "bg-zinc-700 text-zinc-200",
-  CONTACTED: "bg-blue-900/60 text-blue-300",
-  QUALIFYING: "bg-amber-900/60 text-amber-300",
-  QUALIFIED: "bg-teal-900/60 text-teal-300",
-  VIEWING_BOOKED: "bg-emerald-900/60 text-emerald-300",
-  CONVERTED: "bg-green-900/60 text-green-300",
-  ARCHIVED: "bg-zinc-800 text-zinc-500",
-};
-
 const STATUS_OPTIONS = [
   "All",
   "NEW",
@@ -43,14 +34,6 @@ const STATUS_OPTIONS = [
   "CONVERTED",
   "ARCHIVED",
 ];
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 export function LeadsList({
   leads,
@@ -136,9 +119,8 @@ export function LeadsList({
                   <td className="px-4 py-3">
                     <span
                       className={[
-                        "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium",
-                        STATUS_STYLES[lead.status] ??
-                          "bg-zinc-700 text-zinc-200",
+                        "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium transition-colors duration-150",
+                        getStatusBadgeClass(lead.status),
                       ].join(" ")}
                     >
                       {lead.status.replace("_", " ")}
@@ -152,7 +134,7 @@ export function LeadsList({
                     )}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground text-xs">
-                    {formatDate(lead.createdAt)}
+                    {formatDateShort(lead.createdAt)}
                   </td>
                 </tr>
               ))

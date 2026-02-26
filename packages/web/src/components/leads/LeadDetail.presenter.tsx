@@ -2,6 +2,7 @@ import { useNavigate } from "react-router";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { IconArrowLeft } from "@tabler/icons-react";
+import { getStatusBadgeClass, formatDateFull } from "@/lib/utils";
 
 interface LeadDetailData {
   id: string;
@@ -22,16 +23,6 @@ interface LeadDetailProps {
   isLoading: boolean;
 }
 
-const STATUS_STYLES: Record<string, string> = {
-  NEW: "bg-zinc-700 text-zinc-200",
-  CONTACTED: "bg-blue-900/60 text-blue-300",
-  QUALIFYING: "bg-amber-900/60 text-amber-300",
-  QUALIFIED: "bg-teal-900/60 text-teal-300",
-  VIEWING_BOOKED: "bg-emerald-900/60 text-emerald-300",
-  CONVERTED: "bg-green-900/60 text-green-300",
-  ARCHIVED: "bg-zinc-800 text-zinc-500",
-};
-
 function Field({
   label,
   value,
@@ -45,16 +36,6 @@ function Field({
       <p className="text-sm text-foreground">{value ?? "—"}</p>
     </div>
   );
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 export function LeadDetail({ lead, isLoading }: LeadDetailProps) {
@@ -97,8 +78,8 @@ export function LeadDetail({ lead, isLoading }: LeadDetailProps) {
         </div>
         <span
           className={[
-            "inline-flex items-center px-2.5 py-1 rounded text-xs font-medium",
-            STATUS_STYLES[lead.status] ?? "bg-zinc-700 text-zinc-200",
+            "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium transition-colors duration-150",
+            getStatusBadgeClass(lead.status),
           ].join(" ")}
         >
           {lead.status.replace("_", " ")}
@@ -118,8 +99,8 @@ export function LeadDetail({ lead, isLoading }: LeadDetailProps) {
               : undefined
           }
         />
-        <Field label="Created" value={formatDate(lead.createdAt)} />
-        <Field label="Updated" value={formatDate(lead.updatedAt)} />
+        <Field label="Created" value={formatDateFull(lead.createdAt)} />
+        <Field label="Updated" value={formatDateFull(lead.updatedAt)} />
       </Card>
     </div>
   );

@@ -7,13 +7,13 @@ interface DashboardStatsProps {
 }
 
 const statConfig = [
-  { key: "total", label: "Total Leads", color: "text-foreground" },
-  { key: "NEW", label: "New", color: "text-zinc-400" },
-  { key: "CONTACTED", label: "Contacted", color: "text-blue-400" },
-  { key: "QUALIFYING", label: "Qualifying", color: "text-amber-400" },
-  { key: "QUALIFIED", label: "Qualified", color: "text-primary" },
-  { key: "VIEWING_BOOKED", label: "Viewing Booked", color: "text-emerald-400" },
-  { key: "CONVERTED", label: "Converted", color: "text-green-400" },
+  { key: "total", label: "Total Leads", borderColor: "#fafafa" },
+  { key: "NEW", label: "New", borderColor: "#3f3f46" },
+  { key: "CONTACTED", label: "Contacted", borderColor: "#1e3a8a" },
+  { key: "QUALIFYING", label: "Qualifying", borderColor: "#78350f" },
+  { key: "QUALIFIED", label: "Qualified", borderColor: "#312e81" },
+  { key: "VIEWING_BOOKED", label: "Viewing Booked", borderColor: "#064e3b" },
+  { key: "CONVERTED", label: "Converted", borderColor: "#15803d" },
 ] as const;
 
 export function DashboardStats({
@@ -28,10 +28,17 @@ export function DashboardStats({
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
-      {statConfig.map(({ key, label, color }) => (
-        <Card key={key} className="p-4 bg-card border-border">
+      {statConfig.map(({ key, label, borderColor }) => (
+        <Card
+          key={key}
+          className="p-4 bg-card border-border relative overflow-hidden"
+          style={{
+            borderLeftWidth: "3px",
+            borderLeftColor: borderColor,
+          }}
+        >
           <p className="text-xs text-muted-foreground mb-1">{label}</p>
-          <p className={`text-2xl font-semibold ${color}`}>
+          <p className="text-2xl font-semibold text-foreground">
             {isLoading ? "—" : getValue(key)}
           </p>
         </Card>
