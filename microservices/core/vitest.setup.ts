@@ -54,4 +54,16 @@ vi.mock("@lettingsops/db", () => ({
   agencies: { id: {} },
   conversations: { id: {} },
   qualifications: { id: {} },
+  emailConversations: {
+    id: {},
+    agencyId: {},
+    tenantEmail: {},
+    status: {},
+    updatedAt: {},
+    collectedFields: {},
+  },
+  viewingRequests: { id: {}, leadId: {}, agencyId: {}, status: {} },
+  estateAgents: { id: {}, agencyId: {} },
+  agencyRequiredFields: { id: {}, agencyId: {}, fieldKey: {} },
+  availabilityWindows: { id: {}, agencyId: {}, estateAgentId: {} },
 }));
