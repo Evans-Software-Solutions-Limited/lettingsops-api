@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ViewingBookService, type BookViewingInput } from "../viewingBookService";
+import {
+  ViewingBookService,
+  type BookViewingInput,
+} from "../viewingBookService";
 
 const NOW = new Date("2024-06-01T10:00:00.000Z");
 

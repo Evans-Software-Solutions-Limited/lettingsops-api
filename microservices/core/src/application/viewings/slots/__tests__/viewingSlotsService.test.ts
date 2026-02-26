@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ViewingSlotsService, type SlotQuery, type Slot } from "../viewingSlotsService";
+import {
+  ViewingSlotsService,
+  type SlotQuery,
+  type Slot,
+} from "../viewingSlotsService";
 
 const mockSlots: Slot[] = [
   {
@@ -100,8 +104,8 @@ describe("ViewingSlotsService", () => {
   });
 
   it("should support multiple slots per day", () => {
-    const slotsPerDay = mockSlots.filter(
-      (s) => s.startsAt.startsWith("2024-06-15"),
+    const slotsPerDay = mockSlots.filter((s) =>
+      s.startsAt.startsWith("2024-06-15"),
     );
     expect(slotsPerDay.length).toBeGreaterThanOrEqual(1);
   });

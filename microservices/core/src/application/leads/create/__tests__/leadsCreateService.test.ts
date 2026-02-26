@@ -38,15 +38,6 @@ describe("LeadsCreateService", () => {
 
     // The service is an Elysia plugin that decorates 'leadsCreateService'
     // When used, it adds the createLead method to context
-    const input = {
-      name: "John Doe",
-      email: "john@example.com",
-      phone: "+447700900001",
-      propertyRef: "PROP001",
-      message: "Interested",
-      source: "email" as const,
-    };
-
     // Verify the service is properly defined
     expect(typeof elysia).toBe("object");
   });

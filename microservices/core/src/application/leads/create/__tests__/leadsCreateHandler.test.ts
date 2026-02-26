@@ -77,7 +77,12 @@ describe("leadsCreateHandler", () => {
       "test.user@example.co.uk",
       "user+tag@example.com",
     ];
-    const invalidEmails = ["notanemail", "user@", "@example.com", "user @example.com"];
+    const invalidEmails = [
+      "notanemail",
+      "user@",
+      "@example.com",
+      "user @example.com",
+    ];
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -103,13 +108,6 @@ describe("leadsCreateHandler", () => {
   });
 
   it("should return 200 status with lead object on success", () => {
-    // Expected response structure from handler
-    const expectedResponse = {
-      id: expect.any(String),
-      status: "NEW",
-      createdAt: expect.any(String),
-    };
-
     expect(mockLead).toMatchObject({
       id: expect.any(String),
       status: "NEW",

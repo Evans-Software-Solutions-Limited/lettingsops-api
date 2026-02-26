@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { QualificationSubmitService, type ScoreCategory } from "../qualificationSubmitService";
+import {
+  QualificationSubmitService,
+  type ScoreCategory,
+} from "../qualificationSubmitService";
 
 const NOW = new Date("2024-06-01T10:00:00.000Z");
 
@@ -61,15 +64,6 @@ describe("QualificationSubmitService", () => {
   });
 
   it("should score qualification with income band consideration", () => {
-    const lowIncomeAnswers = {
-      moveInDate: "2024-07-01",
-      occupants: 2,
-      employmentStatus: "employed" as const,
-      incomeBand: "under_20k" as const,
-      hasPets: false,
-      viewingAvailability: ["Saturday morning"],
-    };
-
     // Annual income ~15k < monthly rent 1500 × 12 × 2.5 = 45k, so no income bonus
     const incomeThreshold = 1500 * 12 * 2.5; // 45000
     const estimatedIncome = 15000; // under_20k midpoint

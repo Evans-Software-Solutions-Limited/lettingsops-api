@@ -76,6 +76,10 @@ describe("leadsGetHandler", () => {
       source: "manual",
       createdAt: "2024-06-01T11:00:00.000Z",
       updatedAt: "2024-06-01T11:00:00.000Z",
+      phone: undefined as string | undefined,
+      propertyRef: undefined as string | undefined,
+      score: undefined as number | undefined,
+      scoreCategory: undefined as string | undefined,
     };
 
     expect(leadWithoutOptionals.phone).toBeUndefined();

@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { EmailIngestionService, type IngestionResult } from "../emailIngestionService";
+import {
+  EmailIngestionService,
+  type IngestionResult,
+} from "../emailIngestionService";
 
 const NOW = new Date("2024-06-01T10:00:00.000Z");
 
