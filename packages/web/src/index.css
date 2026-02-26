@@ -6,91 +6,56 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ==========================================================================
-   BRAND PALETTE – LettingsOps dark teal theme
+   BRAND PALETTE – LettingsOps Dark Blue-Grey (Vercel/Linear aesthetic)
    ========================================================================== */
 :root {
-  --brand-primary: #2dd4bf;
-  --brand-primary-dark: #0f766e;
-  --brand-secondary: #14b8a6;
-  --brand-accent: #0d9488;
-  --brand-background-darkest: #09090b;
+  --background: #12141f;
+  --card: #1e2130;
+  --card-hover: #252840;
+  --sidebar: #1a1d2e;
+  --border: #2a2d3e;
+  --primary: #6366f1;
+  --primary-foreground: #ffffff;
+  --muted-foreground: #8b8fa8;
+  --foreground: #e8e9f0;
 
-  --primary-gradient: linear-gradient(to right, #0f766e, #2dd4bf);
-}
+  --status-new: #3f3f46;
+  --status-contacted: #1e40af;
+  --status-qualifying: #92400e;
+  --status-qualified: #4f46e5;
+  --status-viewing: #065f46;
+  --status-converted: #14532d;
 
-/* ==========================================================================
-   SEMANTIC TOKENS – Light mode (fallback, app defaults to dark)
-   ========================================================================== */
-:root {
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.24 0.015 260);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.24 0.015 260);
-  --primary: oklch(0.72 0.14 185);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.92 0.02 185);
-  --secondary-foreground: oklch(0.25 0.05 185);
-  --muted: oklch(0.965 0.005 260);
-  --muted-foreground: oklch(0.45 0.02 260);
-  --accent: oklch(0.72 0.14 185);
-  --accent-foreground: oklch(0.99 0 0);
-  --destructive: oklch(0.55 0.22 25);
-  --border: oklch(0.9 0.01 260);
-  --input: oklch(0.9 0.01 260);
-  --ring: oklch(0.72 0.14 185);
-  --chart-1: oklch(0.72 0.14 185);
-  --chart-2: oklch(0.65 0.12 185);
-  --chart-3: oklch(0.68 0.12 145);
-  --chart-4: oklch(0.5 0.1 220);
-  --chart-5: oklch(0.78 0.14 75);
   --radius: 0.5rem;
-  --sidebar: oklch(0.985 0.002 247);
-  --sidebar-foreground: oklch(0.24 0.015 260);
-  --sidebar-primary: oklch(0.72 0.14 185);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.65 0.12 185);
-  --sidebar-accent-foreground: oklch(0.99 0 0);
-  --sidebar-border: oklch(0.9 0.01 260);
-  --sidebar-ring: oklch(0.72 0.14 185);
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.24 0.015 260);
 }
 
 /* ==========================================================================
-   DARK MODE – LettingsOps dark zinc + teal
+   SEMANTIC TOKENS – Dark mode (production default)
    ========================================================================== */
-.dark {
-  --background: #09090b;
-  --foreground: #fafafa;
-  --card: #18181b;
-  --card-foreground: #fafafa;
-  --popover: #18181b;
-  --popover-foreground: #fafafa;
-  --primary: #2dd4bf;
-  --primary-foreground: #09090b;
-  --secondary: #27272a;
-  --secondary-foreground: #fafafa;
-  --muted: #27272a;
-  --muted-foreground: #a1a1aa;
-  --accent: #2dd4bf;
-  --accent-foreground: #09090b;
-  --destructive: #f87171;
-  --border: #27272a;
-  --input: #27272a;
-  --ring: #2dd4bf;
-  --chart-1: #2dd4bf;
-  --chart-2: #34d399;
-  --chart-3: #fbbf24;
-  --chart-4: #f87171;
-  --chart-5: #a78bfa;
-  --sidebar: #09090b;
-  --sidebar-foreground: #fafafa;
-  --sidebar-primary: #2dd4bf;
-  --sidebar-primary-foreground: #09090b;
-  --sidebar-accent: #18181b;
-  --sidebar-accent-foreground: #fafafa;
-  --sidebar-border: #27272a;
-  --sidebar-ring: #2dd4bf;
+:root {
+  --card-foreground: #e8e9f0;
+  --popover: #1e2130;
+  --popover-foreground: #e8e9f0;
+  --secondary: #252840;
+  --secondary-foreground: #e8e9f0;
+  --muted: #2a2d3e;
+  --accent: #6366f1;
+  --accent-foreground: #ffffff;
+  --destructive: #ef4444;
+  --input: #252840;
+  --ring: #6366f1;
+  --chart-1: #6366f1;
+  --chart-2: #3b82f6;
+  --chart-3: #f59e0b;
+  --chart-4: #10b981;
+  --chart-5: #8b5cf6;
+  --sidebar-foreground: #e8e9f0;
+  --sidebar-primary: #6366f1;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #252840;
+  --sidebar-accent-foreground: #e8e9f0;
+  --sidebar-border: #2a2d3e;
+  --sidebar-ring: #6366f1;
 }
 
 @theme inline {
@@ -124,6 +89,7 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-card-hover: var(--card-hover);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
   --radius-sm: calc(var(--radius) - 4px);
@@ -133,10 +99,6 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
-}
-
-@utility bg-primary-gradient {
-  background-image: var(--primary-gradient);
 }
 
 @layer base {

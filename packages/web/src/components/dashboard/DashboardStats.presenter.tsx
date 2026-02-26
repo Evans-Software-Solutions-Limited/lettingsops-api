@@ -1,4 +1,10 @@
 import { Card } from "@/components/ui/card";
+import {
+  IconUsers,
+  IconPhoneCall,
+  IconClipboardCheck,
+  IconCheck,
+} from "@tabler/icons-react";
 
 interface DashboardStatsProps {
   total: number;
@@ -6,15 +12,44 @@ interface DashboardStatsProps {
   isLoading: boolean;
 }
 
-const statConfig = [
-  { key: "total", label: "Total Leads", color: "text-foreground" },
-  { key: "NEW", label: "New", color: "text-zinc-400" },
-  { key: "CONTACTED", label: "Contacted", color: "text-blue-400" },
-  { key: "QUALIFYING", label: "Qualifying", color: "text-amber-400" },
-  { key: "QUALIFIED", label: "Qualified", color: "text-primary" },
-  { key: "VIEWING_BOOKED", label: "Viewing Booked", color: "text-emerald-400" },
-  { key: "CONVERTED", label: "Converted", color: "text-green-400" },
-] as const;
+interface StatCard {
+  key: string;
+  label: string;
+  icon: typeof IconUsers;
+  iconBgColor: string;
+  iconColor: string;
+}
+
+const statConfig: StatCard[] = [
+  {
+    key: "total",
+    label: "Total Leads",
+    icon: IconUsers,
+    iconBgColor: "bg-indigo-500/20",
+    iconColor: "text-indigo-400",
+  },
+  {
+    key: "active",
+    label: "Active",
+    icon: IconPhoneCall,
+    iconBgColor: "bg-blue-500/20",
+    iconColor: "text-blue-400",
+  },
+  {
+    key: "qualified",
+    label: "Qualified",
+    icon: IconClipboardCheck,
+    iconBgColor: "bg-amber-500/20",
+    iconColor: "text-amber-400",
+  },
+  {
+    key: "converted",
+    label: "Converted",
+    icon: IconCheck,
+    iconBgColor: "bg-green-500/20",
+    iconColor: "text-green-400",
+  },
+];
 
 export function DashboardStats({
   total,
@@ -23,17 +58,46 @@ export function DashboardStats({
 }: DashboardStatsProps) {
   const getValue = (key: string) => {
     if (key === "total") return total;
-    return byStatus[key] ?? 0;
+    if (key === "active") {
+      return (
+        (byStatus.NEW ?? 0) +
+        (byStatus.CONTACTED ?? 0) +
+        (byStatus.QUALIFYING ?? 0)
+      );
+    }
+    if (key === "qualified") {
+      return (
+        (byStatus.QUALIFIED ?? 0) + (byStatus.VIEWING_BOOKED ?? 0)
+      );
+    }
+    if (key === "converted") {
+      return byStatus.CONVERTED ?? 0;
+    }
+    return 0;
   };
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
-      {statConfig.map(({ key, label, color }) => (
-        <Card key={key} className="p-4 bg-card border-border">
-          <p className="text-xs text-muted-foreground mb-1">{label}</p>
-          <p className={`text-2xl font-semibold ${color}`}>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+      {statConfig.map(({ key, label, icon: Icon, iconBgColor, iconColor }) => (
+        <Card
+          key={key}
+          className="bg-[#1e2130] border border-[#2a2d3e] rounded-xl p-5 transition-colors duration-150 hover:bg-[#252840]"
+        >
+          {/* Top row: Icon + "vs last month" text */}
+          <div className="flex items-start justify-between mb-3">
+            <div className={`w-10 h-10 rounded-full ${iconBgColor} flex items-center justify-center`}>
+              <Icon size={20} className={iconColor} stroke={1.5} />
+            </div>
+            <span className="text-xs text-[#8b8fa8]">vs last month</span>
+          </div>
+
+          {/* Big number */}
+          <div className="text-3xl font-bold text-white mt-3">
             {isLoading ? "—" : getValue(key)}
-          </p>
+          </div>
+
+          {/* Label */}
+          <p className="text-sm text-[#8b8fa8] mt-1">{label}</p>
         </Card>
       ))}
     </div>
