@@ -207,8 +207,9 @@ describe("QualificationSubmitService", () => {
     mockLeadRepo.findById.mockResolvedValue(mockLead);
     mockLeadRepo.updateScore.mockResolvedValue(undefined);
     mockLeadRepo.updateStatus.mockResolvedValue(undefined);
-    mockQualRepo.create.mockImplementation((input: { score: number; category: string }) =>
-      Promise.resolve({ ...mockQualification, ...input }),
+    mockQualRepo.create.mockImplementation(
+      (input: { score: number; category: string }) =>
+        Promise.resolve({ ...mockQualification, ...input }),
     );
 
     const result =
@@ -235,8 +236,9 @@ describe("QualificationSubmitService", () => {
     mockLeadRepo.findById.mockResolvedValue(mockLead);
     mockLeadRepo.updateScore.mockResolvedValue(undefined);
     mockLeadRepo.updateStatus.mockResolvedValue(undefined);
-    mockQualRepo.create.mockImplementation((input: { score: number; category: string }) =>
-      Promise.resolve({ ...mockQualification, ...input }),
+    mockQualRepo.create.mockImplementation(
+      (input: { score: number; category: string }) =>
+        Promise.resolve({ ...mockQualification, ...input }),
     );
 
     const moveInWithin30Days = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000)
@@ -268,8 +270,9 @@ describe("QualificationSubmitService", () => {
     });
     mockLeadRepo.updateScore.mockResolvedValue(undefined);
     mockLeadRepo.updateStatus.mockResolvedValue(undefined);
-    mockQualRepo.create.mockImplementation((input: { score: number; category: string }) =>
-      Promise.resolve({ ...mockQualification, ...input }),
+    mockQualRepo.create.mockImplementation(
+      (input: { score: number; category: string }) =>
+        Promise.resolve({ ...mockQualification, ...input }),
     );
 
     const result =
@@ -286,15 +289,19 @@ describe("QualificationSubmitService", () => {
       );
 
     expect(result.qualificationId).toBeDefined();
-    expect([ "LOW", "MEDIUM", "STRONG" ]).toContain(result.category);
+    expect(["LOW", "MEDIUM", "STRONG"]).toContain(result.category);
   });
 
   it("should return qualification with LOW category when score < 3", async () => {
-    mockLeadRepo.findById.mockResolvedValue({ ...mockLead, propertyRent: 50000 });
+    mockLeadRepo.findById.mockResolvedValue({
+      ...mockLead,
+      propertyRent: 50000,
+    });
     mockLeadRepo.updateScore.mockResolvedValue(undefined);
     mockLeadRepo.updateStatus.mockResolvedValue(undefined);
-    mockQualRepo.create.mockImplementation((input: { score: number; category: string }) =>
-      Promise.resolve({ ...mockQualification, ...input }),
+    mockQualRepo.create.mockImplementation(
+      (input: { score: number; category: string }) =>
+        Promise.resolve({ ...mockQualification, ...input }),
     );
 
     const result =
@@ -318,8 +325,9 @@ describe("QualificationSubmitService", () => {
     mockLeadRepo.findById.mockResolvedValue(mockLead);
     mockLeadRepo.updateScore.mockResolvedValue(undefined);
     mockLeadRepo.updateStatus.mockResolvedValue(undefined);
-    mockQualRepo.create.mockImplementation((input: { score: number; category: string }) =>
-      Promise.resolve({ ...mockQualification, ...input }),
+    mockQualRepo.create.mockImplementation(
+      (input: { score: number; category: string }) =>
+        Promise.resolve({ ...mockQualification, ...input }),
     );
 
     const moveInWithin30Days = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000)
@@ -347,8 +355,9 @@ describe("QualificationSubmitService", () => {
     mockLeadRepo.findById.mockResolvedValue(mockLead);
     mockLeadRepo.updateScore.mockResolvedValue(undefined);
     mockLeadRepo.updateStatus.mockResolvedValue(undefined);
-    mockQualRepo.create.mockImplementation((input: { score: number; category: string }) =>
-      Promise.resolve({ ...mockQualification, ...input }),
+    mockQualRepo.create.mockImplementation(
+      (input: { score: number; category: string }) =>
+        Promise.resolve({ ...mockQualification, ...input }),
     );
 
     const result =

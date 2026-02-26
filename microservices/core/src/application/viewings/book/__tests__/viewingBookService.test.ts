@@ -109,7 +109,10 @@ describe("ViewingBookService", () => {
         slotId: input.slotId,
       }),
     );
-    expect(mockLeadRepo.updateStatus).toHaveBeenCalledWith("lead-1", "VIEWING_BOOKED");
+    expect(mockLeadRepo.updateStatus).toHaveBeenCalledWith(
+      "lead-1",
+      "VIEWING_BOOKED",
+    );
   });
 
   it("should require leadId to be a string", () => {
