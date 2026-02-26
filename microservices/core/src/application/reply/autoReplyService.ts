@@ -3,7 +3,7 @@
  *
  * Sends automated SES replies to tenants based on conversation state.
  * Handles three reply paths:
- * 1. VIEWING_ENQUIRY + incomplete: send next qualification question
+ * 1. VIEWING_ENQUIRY + incomplete: send all missing qualification questions in one email
  * 2. VIEWING_ENQUIRY + complete: send acknowledgement
  * 3. MAINTENANCE_REQUEST / GENERAL_ENQUIRY: send acknowledgement
  */
@@ -98,17 +98,19 @@ export class AutoReplyService {
 
     if (result.conversationType === "VIEWING_ENQUIRY") {
       if (!result.isComplete) {
-        // Incomplete viewing enquiry — ask for next missing field
-        const nextMissingField = result.missingFields[0];
-        const question =
-          fieldToQuestionMap[nextMissingField] || `${nextMissingField}?`;
+        // Incomplete viewing enquiry — ask for all missing fields in one email
+        const questions = result.missingFields.map(
+          (fieldKey) => fieldToQuestionMap[fieldKey] ?? `${fieldKey}?`,
+        );
+        subject =
+          result.missingFields.length === 1
+            ? `Thanks for your interest! One more thing...`
+            : `Thanks for your interest — a few details we need`;
 
-        subject = `Thanks for your interest! One more thing...`;
         htmlBody = this.buildQualificationEmailHtml({
           agencyName,
           propertyRef,
-          question,
-          missingFields: result.missingFields,
+          questions,
         });
       } else {
         // Complete viewing enquiry — send acknowledgement
@@ -159,18 +161,18 @@ export class AutoReplyService {
   private buildQualificationEmailHtml(params: {
     agencyName: string;
     propertyRef?: string;
-    question: string;
-    missingFields: string[];
+    questions: string[];
   }): string {
-    const { agencyName, propertyRef, question, missingFields } = params;
+    const { agencyName, propertyRef, questions } = params;
     const propertyLine = propertyRef
       ? ` for property <strong>${propertyRef}</strong>`
       : "";
-    const remainingCount = missingFields.length;
-    const remainingText =
-      remainingCount > 1
-        ? ` We have a few more questions (${remainingCount} remaining).`
-        : "";
+    const questionsHtml = questions
+      .map(
+        (q) =>
+          `<li class="question-item"><strong>${q}</strong></li>`,
+      )
+      .join("\n        ");
 
     return `
 <!DOCTYPE html>
@@ -182,7 +184,8 @@ export class AutoReplyService {
     .container { max-width: 600px; margin: 0 auto; padding: 20px; }
     .header { background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
     .content { margin: 20px 0; }
-    .question { background-color: #e8f4f8; padding: 15px; border-left: 4px solid #0066cc; margin: 15px 0; }
+    .questions-list { padding-left: 1.5em; margin: 15px 0; }
+    .question-item { background-color: #e8f4f8; padding: 12px 15px; border-left: 4px solid #0066cc; margin: 10px 0; }
     .footer { font-size: 12px; color: #999; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; }
   </style>
 </head>
@@ -192,12 +195,11 @@ export class AutoReplyService {
       <h2>Thanks for your interest${propertyLine}!</h2>
     </div>
     <div class="content">
-      <p>To help us find the best match for you, could you please let us know:</p>
-      <div class="question">
-        <strong>${question}</strong>
-      </div>
-      <p>${remainingText}</p>
-      <p>Reply to this email with your answer, and we'll take it from here.</p>
+      <p>To help us find the best match for you, could you please reply with:</p>
+      <ol class="questions-list">
+        ${questionsHtml}
+      </ol>
+      <p>Reply to this email with your answers, and we'll take it from here.</p>
     </div>
     <div class="footer">
       <p>Best regards,<br>${agencyName}</p>

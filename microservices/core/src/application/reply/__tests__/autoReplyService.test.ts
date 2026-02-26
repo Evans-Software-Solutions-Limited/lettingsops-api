@@ -54,13 +54,14 @@ describe("AutoReplyService", () => {
       const callArgs = vi.mocked(mockSESender.send).mock.calls[0][0];
       expect(callArgs.Source).toBe("noreply@lettingsops.com");
       expect(callArgs.Destination.ToAddresses).toEqual(["john@example.com"]);
-      expect(callArgs.Message.Subject.Data).toContain("One more thing");
+      expect(callArgs.Message.Subject.Data).toContain("a few details we need");
 
-      // Check that email body contains the property ref and question
+      // Check that email body contains the property ref and all missing questions
       const htmlBody = callArgs.Message.Body.Html.Data;
       expect(htmlBody).toContain("PROP-001");
       expect(htmlBody).toContain("What is your email address?");
-      expect(htmlBody).toContain("remaining");
+      expect(htmlBody).toContain("What is your phone number?");
+      expect(htmlBody).toContain("When are you looking to move in?");
       expect(htmlBody).toContain("Premier Lettings");
     });
 
