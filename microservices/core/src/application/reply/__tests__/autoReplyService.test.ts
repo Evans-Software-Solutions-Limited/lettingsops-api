@@ -143,6 +143,61 @@ describe("AutoReplyService", () => {
       // Should default to "Our Team" when agency not found
       expect(htmlBody).toContain("Our Team");
     });
+
+    it("should use 'One more thing' subject when exactly one missing field", async () => {
+      const result: ConversationStateResult = {
+        conversationId: "conv-uuid-single",
+        conversationType: "VIEWING_ENQUIRY",
+        collectedFields: { name: "Jane" },
+        missingFields: ["email"],
+        isComplete: false,
+      };
+
+      vi.mocked(mockAgencyRepository.findById).mockResolvedValue({
+        id: "agency-uuid-1",
+        name: "Agency",
+        inboundEmail: "a@b.com",
+        createdAt: NOW,
+        updatedAt: NOW,
+      });
+
+      await service.sendReply({
+        result,
+        tenantEmail: "jane@example.com",
+        agencyId: "agency-uuid-1",
+      });
+
+      const callArgs = vi.mocked(mockSESender.send).mock.calls[0][0];
+      expect(callArgs.Message.Subject.Data).toContain("One more thing");
+    });
+
+    it("should use fallback question for unknown field key", async () => {
+      const result: ConversationStateResult = {
+        conversationId: "conv-uuid-unknown",
+        conversationType: "VIEWING_ENQUIRY",
+        collectedFields: {},
+        missingFields: ["custom_field_key"],
+        isComplete: false,
+      };
+
+      vi.mocked(mockAgencyRepository.findById).mockResolvedValue({
+        id: "agency-uuid-1",
+        name: "Agency",
+        inboundEmail: "a@b.com",
+        createdAt: NOW,
+        updatedAt: NOW,
+      });
+
+      await service.sendReply({
+        result,
+        tenantEmail: "user@example.com",
+        agencyId: "agency-uuid-1",
+      });
+
+      const callArgs = vi.mocked(mockSESender.send).mock.calls[0][0];
+      const htmlBody = callArgs.Message.Body.Html.Data;
+      expect(htmlBody).toContain("custom_field_key?");
+    });
   });
 
   describe("VIEWING_ENQUIRY - complete", () => {
@@ -214,6 +269,35 @@ describe("AutoReplyService", () => {
       const callArgs = vi.mocked(mockSESender.send).mock.calls[0][0];
       const htmlBody = callArgs.Message.Body.Html.Data;
       expect(htmlBody).toContain("FLAT-42");
+    });
+
+    it("should not include property ref line when propertyRef is omitted", async () => {
+      const result: ConversationStateResult = {
+        conversationId: "conv-uuid-no-ref",
+        conversationType: "VIEWING_ENQUIRY",
+        collectedFields: { name: "Jane" },
+        missingFields: [],
+        isComplete: true,
+      };
+
+      vi.mocked(mockAgencyRepository.findById).mockResolvedValue({
+        id: "agency-uuid-1",
+        name: "Test Agency",
+        inboundEmail: "test@agency.com",
+        createdAt: NOW,
+        updatedAt: NOW,
+      });
+
+      await service.sendReply({
+        result,
+        tenantEmail: "jane@example.com",
+        agencyId: "agency-uuid-1",
+      });
+
+      const callArgs = vi.mocked(mockSESender.send).mock.calls[0][0];
+      const htmlBody = callArgs.Message.Body.Html.Data;
+      expect(htmlBody).toContain("we have everything we need");
+      expect(htmlBody).not.toMatch(/for <strong>.*<\/strong>/);
     });
   });
 

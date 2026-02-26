@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { processConversationState } from "../conversationStateService";
+import {
+  processConversationState,
+  ConversationStateService,
+} from "../conversationStateService";
 
 const NOW = new Date("2024-06-01T10:00:00.000Z");
 
@@ -142,6 +145,24 @@ describe("ConversationStateService", () => {
       });
       expect(result.missingFields).toHaveLength(0);
       expect(result.isComplete).toBe(true);
+    });
+
+    it("uses empty object when existing conversation has null collectedFields", async () => {
+      mockConversationRepo.findByAgencyAndEmail.mockResolvedValue({
+        ...mockConversation,
+        collectedFields: null,
+      });
+      mockAgencyRepo.getRequiredFields.mockResolvedValue(mockRequiredFields);
+
+      const result = await processConversationState({
+        agencyId: "agency-uuid-1",
+        tenantEmail: "tenant@example.com",
+        messageId: "msg-002",
+        extractedFields: { name: "Jane" },
+        conversationType: "VIEWING_ENQUIRY",
+      });
+
+      expect(result.collectedFields).toMatchObject({ name: "Jane" });
     });
   });
 
@@ -300,6 +321,32 @@ describe("ConversationStateService", () => {
       expect(result.isComplete).toBe(true);
       expect(result.missingFields).toHaveLength(0);
       expect(mockConversationRepo.markComplete).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe("Elysia decorator", () => {
+    it("process() delegates to processConversationState and returns same result", async () => {
+      mockConversationRepo.findByAgencyAndEmail.mockResolvedValue(
+        mockConversation,
+      );
+      mockAgencyRepo.getRequiredFields.mockResolvedValue(mockRequiredFields);
+
+      const input = {
+        agencyId: "agency-uuid-1",
+        tenantEmail: "tenant@example.com",
+        messageId: "msg-002",
+        extractedFields: { email: "john@example.com", phone: "+447700900001" },
+        conversationType: "VIEWING_ENQUIRY" as const,
+      };
+
+      const result =
+        await ConversationStateService.decorator.conversationStateService.process(
+          input,
+        );
+
+      expect(result.conversationId).toBe("conv-uuid-1");
+      expect(result.isComplete).toBe(true);
+      expect(result.missingFields).toHaveLength(0);
     });
   });
 });

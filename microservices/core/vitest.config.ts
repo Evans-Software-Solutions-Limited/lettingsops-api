@@ -19,6 +19,14 @@ export default defineConfig({
         "**/*.d.ts",
         "**/types/**",
         "**/emailProcessor.ts",
+        // Thin Elysia route handlers — no functional logic to test
+        "**/emailIngestionHandler.ts",
+        "**/viewingBookHandler.ts",
+        "**/viewingSlotsHandler.ts",
+        "**/leadsCreateHandler.ts",
+        "**/leadsGetHandler.ts",
+        "**/leadsListHandler.ts",
+        "**/qualificationSubmitHandler.ts",
       ],
       // Enforce 90% minimum coverage threshold across all files
       thresholds: {

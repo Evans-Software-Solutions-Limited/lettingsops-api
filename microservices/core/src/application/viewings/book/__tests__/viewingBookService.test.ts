@@ -1,10 +1,48 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   ViewingBookService,
   type BookViewingInput,
 } from "../viewingBookService";
 
+const mockLead = {
+  id: "lead-1",
+  name: "Lead",
+  email: "lead@example.com",
+  source: "email" as const,
+  status: "NEW" as const,
+  createdAt: "2024-06-01T10:00:00.000Z",
+  updatedAt: "2024-06-01T10:00:00.000Z",
+};
+
+const mockViewing = {
+  id: "viewing-1",
+  leadId: "lead-1",
+  propertyRef: "PROP001",
+  slotId: "slot-1",
+  confirmedAt: "2024-06-15T14:00:00.000Z",
+  createdAt: "2024-06-01T10:00:00.000Z",
+};
+
+const mockLeadRepo = {
+  findById: vi.fn(),
+  updateStatus: vi.fn(),
+};
+
+const mockViewingRepo = {
+  create: vi.fn(),
+};
+
+vi.mock("../../../repositories/leadRepository", () => ({
+  LeadRepository: vi.fn(() => mockLeadRepo),
+}));
+vi.mock("../../../repositories/viewingRepository", () => ({
+  ViewingRepository: vi.fn(() => mockViewingRepo),
+}));
+
 describe("ViewingBookService", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
   it("should be an Elysia service", () => {
     expect(ViewingBookService).toBeDefined();
     expect(typeof ViewingBookService).toBe("object");
@@ -34,6 +72,8 @@ describe("ViewingBookService", () => {
   });
 
   it("should throw error when lead not found", async () => {
+    mockLeadRepo.findById.mockResolvedValue(null);
+
     const input: BookViewingInput = {
       leadId: "non-existent-lead",
       propertyRef: "PROP001",
@@ -43,6 +83,33 @@ describe("ViewingBookService", () => {
     await expect(
       ViewingBookService.decorator.viewingBookService.bookViewing(input),
     ).rejects.toThrow("Lead not found");
+  });
+
+  it("should return viewingId and confirmedAt when lead exists and booking succeeds", async () => {
+    mockLeadRepo.findById.mockResolvedValue(mockLead);
+    mockLeadRepo.updateStatus.mockResolvedValue(undefined);
+    mockViewingRepo.create.mockResolvedValue(mockViewing);
+
+    const input: BookViewingInput = {
+      leadId: "lead-1",
+      propertyRef: "PROP001",
+      slotId: "slot-1",
+    };
+
+    const result =
+      await ViewingBookService.decorator.viewingBookService.bookViewing(input);
+
+    expect(result.viewingId).toBe("viewing-1");
+    expect(result.confirmedAt).toBe(mockViewing.confirmedAt);
+    expect(result.calendarEventId).toBeUndefined();
+    expect(mockViewingRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        leadId: input.leadId,
+        propertyRef: input.propertyRef,
+        slotId: input.slotId,
+      }),
+    );
+    expect(mockLeadRepo.updateStatus).toHaveBeenCalledWith("lead-1", "VIEWING_BOOKED");
   });
 
   it("should require leadId to be a string", () => {

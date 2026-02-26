@@ -1,10 +1,121 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   EmailIngestionService,
   type EmailPayload,
 } from "../emailIngestionService";
 
+const mockLead = {
+  id: "lead-existing-1",
+  name: "Existing Lead",
+  email: "existing@example.com",
+  source: "email" as const,
+  status: "NEW" as const,
+  createdAt: "2024-06-01T10:00:00.000Z",
+  updatedAt: "2024-06-01T10:00:00.000Z",
+};
+
+const mockLeadRepo = {
+  findByMessageId: vi.fn(),
+  findByEmail: vi.fn(),
+  create: vi.fn(),
+  addNote: vi.fn(),
+};
+
+vi.mock("../../../repositories/leadRepository", () => ({
+  LeadRepository: vi.fn(() => mockLeadRepo),
+}));
+
 describe("EmailIngestionService", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Default: no existing lead, create returns a new lead (for tests that don't override)
+    mockLeadRepo.findByMessageId.mockResolvedValue(null);
+    mockLeadRepo.findByEmail.mockResolvedValue(null);
+    mockLeadRepo.create.mockResolvedValue({
+      ...mockLead,
+      id: "lead-mock-id",
+      email: "mock@example.com",
+    });
+  });
+
+  describe("with repository mocks", () => {
+    it("returns IGNORED when findByMessageId returns existing lead", async () => {
+      mockLeadRepo.findByMessageId.mockResolvedValue(mockLead);
+
+      const result =
+        await EmailIngestionService.decorator.emailIngestionService.processEmail(
+          {
+            messageId: "msg-duplicate",
+            from: "any@example.com",
+            subject: "Re: Enquiry",
+            body: "Body",
+            receivedAt: "2024-06-01T10:00:00.000Z",
+          },
+        );
+
+      expect(result.action).toBe("IGNORED");
+      expect(result.leadId).toBe(mockLead.id);
+      expect(mockLeadRepo.create).not.toHaveBeenCalled();
+      expect(mockLeadRepo.addNote).not.toHaveBeenCalled();
+    });
+
+    it("returns MERGED when findByEmail returns existing lead and calls addNote", async () => {
+      mockLeadRepo.findByMessageId.mockResolvedValue(null);
+      mockLeadRepo.findByEmail.mockResolvedValue(mockLead);
+      mockLeadRepo.addNote.mockResolvedValue(undefined);
+
+      const payload: EmailPayload = {
+        messageId: "msg-second",
+        from: "existing@example.com",
+        subject: "Second enquiry",
+        body: "Body",
+        receivedAt: "2024-06-01T10:00:00.000Z",
+      };
+
+      const result =
+        await EmailIngestionService.decorator.emailIngestionService.processEmail(
+          payload,
+        );
+
+      expect(result.action).toBe("MERGED");
+      expect(result.leadId).toBe(mockLead.id);
+      expect(mockLeadRepo.addNote).toHaveBeenCalledWith(mockLead.id, {
+        source: "email",
+        messageId: payload.messageId,
+        subject: payload.subject,
+        receivedAt: payload.receivedAt,
+      });
+      expect(mockLeadRepo.create).not.toHaveBeenCalled();
+    });
+
+    it("returns CREATED when no existing lead and creates new lead", async () => {
+      mockLeadRepo.findByMessageId.mockResolvedValue(null);
+      mockLeadRepo.findByEmail.mockResolvedValue(null);
+      mockLeadRepo.create.mockResolvedValue({
+        ...mockLead,
+        id: "lead-new-1",
+        email: "new@example.com",
+      });
+
+      const result =
+        await EmailIngestionService.decorator.emailIngestionService.processEmail(
+          {
+            messageId: "msg-new",
+            from: "new@example.com",
+            fromName: "New User",
+            subject: "Enquiry",
+            body: "Body",
+            receivedAt: "2024-06-01T10:00:00.000Z",
+          },
+        );
+
+      expect(result.action).toBe("CREATED");
+      expect(result.leadId).toBe("lead-new-1");
+      expect(mockLeadRepo.create).toHaveBeenCalled();
+    });
+  });
+
+  describe("service shape and payloads", () => {
   it("should be an Elysia service", () => {
     expect(EmailIngestionService).toBeDefined();
     expect(typeof EmailIngestionService).toBe("object");
@@ -267,5 +378,6 @@ describe("EmailIngestionService", () => {
       );
 
     expect(result.leadId).toBeTruthy();
+  });
   });
 });
