@@ -168,10 +168,7 @@ export class AutoReplyService {
       ? ` for property <strong>${propertyRef}</strong>`
       : "";
     const questionsHtml = questions
-      .map(
-        (q) =>
-          `<li class="question-item"><strong>${q}</strong></li>`,
-      )
+      .map((q) => `<li class="question-item"><strong>${q}</strong></li>`)
       .join("\n        ");
 
     return `
