@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   EmailIngestionService,
+  processEmail,
   type EmailPayload,
 } from "../emailIngestionService";
 
@@ -35,6 +36,150 @@ describe("EmailIngestionService", () => {
       ...mockLead,
       id: "lead-mock-id",
       email: "mock@example.com",
+    });
+  });
+
+  describe("processEmail standalone function", () => {
+    it("should be callable directly without Elysia", async () => {
+      const payload: EmailPayload = {
+        messageId: "msg-direct",
+        from: "user@example.com",
+        fromName: "John Doe",
+        subject: "Test",
+        body: "Test body",
+        receivedAt: "2024-06-01T10:00:00.000Z",
+      };
+
+      const result = await processEmail(payload);
+
+      expect(result).toHaveProperty("leadId");
+      expect(result).toHaveProperty("action");
+      expect(result.action).toBe("CREATED");
+    });
+
+    it("returns IGNORED when findByMessageId returns existing lead", async () => {
+      mockLeadRepo.findByMessageId.mockResolvedValue(mockLead);
+
+      const result = await processEmail({
+        messageId: "msg-duplicate",
+        from: "any@example.com",
+        subject: "Re: Enquiry",
+        body: "Body",
+        receivedAt: "2024-06-01T10:00:00.000Z",
+      });
+
+      expect(result.action).toBe("IGNORED");
+      expect(result.leadId).toBe(mockLead.id);
+      expect(mockLeadRepo.create).not.toHaveBeenCalled();
+      expect(mockLeadRepo.addNote).not.toHaveBeenCalled();
+    });
+
+    it("returns MERGED when findByEmail returns existing lead and calls addNote", async () => {
+      mockLeadRepo.findByMessageId.mockResolvedValue(null);
+      mockLeadRepo.findByEmail.mockResolvedValue(mockLead);
+      mockLeadRepo.addNote.mockResolvedValue(undefined);
+
+      const payload: EmailPayload = {
+        messageId: "msg-second",
+        from: "existing@example.com",
+        subject: "Second enquiry",
+        body: "Body",
+        receivedAt: "2024-06-01T10:00:00.000Z",
+      };
+
+      const result = await processEmail(payload);
+
+      expect(result.action).toBe("MERGED");
+      expect(result.leadId).toBe(mockLead.id);
+      expect(mockLeadRepo.addNote).toHaveBeenCalledWith(mockLead.id, {
+        source: "email",
+        messageId: payload.messageId,
+        subject: payload.subject,
+        receivedAt: payload.receivedAt,
+      });
+      expect(mockLeadRepo.create).not.toHaveBeenCalled();
+    });
+
+    it("returns CREATED when no existing lead and creates new lead", async () => {
+      mockLeadRepo.findByMessageId.mockResolvedValue(null);
+      mockLeadRepo.findByEmail.mockResolvedValue(null);
+      mockLeadRepo.create.mockResolvedValue({
+        ...mockLead,
+        id: "lead-new-1",
+        email: "new@example.com",
+      });
+
+      const result = await processEmail({
+        messageId: "msg-new",
+        from: "new@example.com",
+        fromName: "New User",
+        subject: "Enquiry",
+        body: "Body",
+        receivedAt: "2024-06-01T10:00:00.000Z",
+      });
+
+      expect(result.action).toBe("CREATED");
+      expect(result.leadId).toBe("lead-new-1");
+      expect(mockLeadRepo.create).toHaveBeenCalled();
+    });
+
+    it("passes LLM-extracted name as fromName to lead creation", async () => {
+      mockLeadRepo.findByMessageId.mockResolvedValue(null);
+      mockLeadRepo.findByEmail.mockResolvedValue(null);
+      mockLeadRepo.create.mockResolvedValue({
+        ...mockLead,
+        id: "lead-llm-1",
+        name: "John Smith",
+        email: "john@example.com",
+      });
+
+      const payload: EmailPayload = {
+        messageId: "msg-with-llm-name",
+        from: "john@example.com",
+        fromName: "John Smith", // LLM-extracted name
+        subject: "Enquiry",
+        body: "Body",
+        receivedAt: "2024-06-01T10:00:00.000Z",
+      };
+
+      const result = await processEmail(payload);
+
+      expect(result.action).toBe("CREATED");
+      expect(mockLeadRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "John Smith",
+          email: "john@example.com",
+        }),
+      );
+    });
+
+    it("falls back to email prefix when LLM name not provided", async () => {
+      mockLeadRepo.findByMessageId.mockResolvedValue(null);
+      mockLeadRepo.findByEmail.mockResolvedValue(null);
+      mockLeadRepo.create.mockResolvedValue({
+        ...mockLead,
+        id: "lead-fallback-1",
+        name: "jane",
+        email: "jane.doe@example.com",
+      });
+
+      const payload: EmailPayload = {
+        messageId: "msg-no-llm-name",
+        from: "jane.doe@example.com",
+        // No fromName provided
+        subject: "Enquiry",
+        body: "Body",
+        receivedAt: "2024-06-01T10:00:00.000Z",
+      };
+
+      const result = await processEmail(payload);
+
+      expect(result.action).toBe("CREATED");
+      expect(mockLeadRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "jane.doe", // email prefix
+        }),
+      );
     });
   });
 

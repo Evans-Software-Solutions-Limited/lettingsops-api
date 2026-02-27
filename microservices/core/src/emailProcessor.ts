@@ -3,6 +3,7 @@ import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import PostalMime from "postal-mime";
 import OpenAI from "openai";
 import { processConversationState } from "./application/conversation/conversationStateService";
+import { processEmail } from "./application/ingestion/email/emailIngestionService";
 import { AutoReplyService } from "./application/reply/autoReplyService";
 import type { ConversationTypeEnum } from "@lettingsops/db";
 import { getDb, agencies } from "@lettingsops/db";
@@ -65,7 +66,8 @@ export const handler = async (event: S3Event): Promise<void> => {
     const systemPrompt = `You are an AI assistant for a lettings agency.
 Analyse the email and return JSON with:
 - "type": one of "VIEWING_ENQUIRY" | "MAINTENANCE_REQUEST" | "GENERAL_ENQUIRY" | "OTHER"
-- "fields": object of extracted fields relevant to viewing enquiries — only include keys present in the email: annual_salary, employment_status, move_in_date, current_living_situation
+- "fields": object of extracted fields — only include keys where the value is clearly present in the email:
+  name, phone, employment_status, annual_salary, monthly_income, move_in_date, current_living_situation
 Respond with valid JSON only, no markdown.`;
 
     const llmResponse = await openai.chat.completions.create({
@@ -90,18 +92,36 @@ Respond with valid JSON only, no markdown.`;
       console.warn("Failed to parse LLM response, defaulting to OTHER");
     }
 
-    // 5. Process conversation state
+    // 5. Create or merge lead from LLM-extracted data
+    const ingestionResult = await processEmail({
+      messageId: key,
+      from: tenantEmail,
+      fromName: extractedFields.name, // Use LLM-extracted name if available
+      subject,
+      body: emailBody,
+      receivedAt: new Date().toISOString(),
+    });
+
+    const leadId = ingestionResult.leadId;
+    console.log(
+      `Lead ${ingestionResult.action}:`,
+      leadId,
+      JSON.stringify(ingestionResult),
+    );
+
+    // 6. Process conversation state with leadId
     const result = await processConversationState({
       agencyId: agency.id,
       tenantEmail,
       messageId: key,
       extractedFields,
       conversationType,
+      leadId,
     });
 
     console.log("Conversation state processed", JSON.stringify(result));
 
-    // 6. Send auto-reply to tenant
+    // 7. Send auto-reply to tenant
     await autoReplyService.sendReply({
       result,
       tenantEmail,
