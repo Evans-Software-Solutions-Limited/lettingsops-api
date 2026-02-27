@@ -1,6 +1,14 @@
 import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export interface Lead {
   id: string;
@@ -24,13 +32,13 @@ interface LeadsListProps {
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  NEW: "bg-zinc-700 text-zinc-200",
+  NEW: "bg-muted text-muted-foreground",
   CONTACTED: "bg-blue-900/60 text-blue-300",
   QUALIFYING: "bg-amber-900/60 text-amber-300",
   QUALIFIED: "bg-teal-900/60 text-teal-300",
   VIEWING_BOOKED: "bg-emerald-900/60 text-emerald-300",
   CONVERTED: "bg-green-900/60 text-green-300",
-  ARCHIVED: "bg-zinc-800 text-zinc-500",
+  ARCHIVED: "bg-muted text-muted-foreground",
 };
 
 const STATUS_OPTIONS = [
@@ -90,76 +98,84 @@ export function LeadsList({
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border text-muted-foreground text-xs uppercase tracking-wide">
-              <th className="text-left px-4 py-3 font-medium">Name</th>
-              <th className="text-left px-4 py-3 font-medium">Email</th>
-              <th className="text-left px-4 py-3 font-medium">Status</th>
-              <th className="text-left px-4 py-3 font-medium">Score</th>
-              <th className="text-left px-4 py-3 font-medium">Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              <tr>
-                <td
-                  colSpan={5}
-                  className="px-4 py-8 text-center text-muted-foreground"
-                >
-                  Loading leads...
-                </td>
-              </tr>
-            ) : leads.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={5}
-                  className="px-4 py-8 text-center text-muted-foreground"
-                >
-                  No leads found.
-                </td>
-              </tr>
-            ) : (
-              leads.map((lead) => (
-                <tr
-                  key={lead.id}
-                  onClick={() => navigate(`/leads/${lead.id}`)}
-                  className="border-b border-border last:border-0 hover:bg-secondary/50 cursor-pointer transition-colors"
-                >
-                  <td className="px-4 py-3 font-medium text-foreground">
-                    {lead.name}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {lead.email}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={[
-                        "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium",
-                        STATUS_STYLES[lead.status] ??
-                          "bg-zinc-700 text-zinc-200",
-                      ].join(" ")}
-                    >
-                      {lead.status.replace("_", " ")}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {lead.scoreCategory ? (
-                      <span className="text-xs">{lead.scoreCategory}</span>
-                    ) : (
-                      <span className="text-xs text-zinc-600">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground text-xs">
-                    {formatDate(lead.createdAt)}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent border-border">
+            <TableHead className="text-muted-foreground text-xs uppercase tracking-wide">
+              Name
+            </TableHead>
+            <TableHead className="text-muted-foreground text-xs uppercase tracking-wide">
+              Email
+            </TableHead>
+            <TableHead className="text-muted-foreground text-xs uppercase tracking-wide">
+              Status
+            </TableHead>
+            <TableHead className="text-muted-foreground text-xs uppercase tracking-wide">
+              Score
+            </TableHead>
+            <TableHead className="text-muted-foreground text-xs uppercase tracking-wide">
+              Date
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {isLoading ? (
+            <TableRow>
+              <TableCell
+                colSpan={5}
+                className="px-4 py-8 text-center text-muted-foreground"
+              >
+                Loading leads...
+              </TableCell>
+            </TableRow>
+          ) : leads.length === 0 ? (
+            <TableRow>
+              <TableCell
+                colSpan={5}
+                className="px-4 py-8 text-center text-muted-foreground"
+              >
+                No leads found.
+              </TableCell>
+            </TableRow>
+          ) : (
+            leads.map((lead) => (
+              <TableRow
+                key={lead.id}
+                onClick={() => navigate(`/leads/${lead.id}`)}
+                className="border-border hover:bg-secondary/50 cursor-pointer transition-colors"
+              >
+                <TableCell className="font-medium text-foreground">
+                  {lead.name}
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {lead.email}
+                </TableCell>
+                <TableCell>
+                  <span
+                    className={[
+                      "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium",
+                      STATUS_STYLES[lead.status] ??
+                        "bg-muted text-muted-foreground",
+                    ].join(" ")}
+                  >
+                    {lead.status.replace("_", " ")}
+                  </span>
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {lead.scoreCategory ? (
+                    <span className="text-xs">{lead.scoreCategory}</span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </TableCell>
+                <TableCell className="text-muted-foreground text-xs">
+                  {formatDate(lead.createdAt)}
+                </TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
 
       {/* Pagination */}
       {totalPages > 1 && (

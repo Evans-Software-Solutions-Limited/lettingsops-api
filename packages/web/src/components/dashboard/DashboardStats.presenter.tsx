@@ -8,7 +8,7 @@ interface DashboardStatsProps {
 
 const statConfig = [
   { key: "total", label: "Total Leads", color: "text-foreground" },
-  { key: "NEW", label: "New", color: "text-zinc-400" },
+  { key: "NEW", label: "New", color: "text-muted-foreground" },
   { key: "CONTACTED", label: "Contacted", color: "text-blue-400" },
   { key: "QUALIFYING", label: "Qualifying", color: "text-amber-400" },
   { key: "QUALIFIED", label: "Qualified", color: "text-primary" },
