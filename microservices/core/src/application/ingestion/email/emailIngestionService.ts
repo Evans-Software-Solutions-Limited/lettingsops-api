@@ -47,9 +47,10 @@ export async function processEmail(
 
   // Create new lead
   // LLM extraction now happens upstream in emailProcessor.ts
-  // Use LLM-extracted name if available, otherwise fallback to fromName or email prefix
+  // Treat empty or whitespace-only fromName as missing (?? only catches null/undefined; LLMs can return "")
+  const fromName = payload.fromName?.trim();
   const lead = await repo.create({
-    name: payload.fromName ?? payload.from.split("@")[0],
+    name: fromName || payload.from.split("@")[0],
     email: payload.from,
     propertyRef: payload.propertyRef,
     message: payload.body,

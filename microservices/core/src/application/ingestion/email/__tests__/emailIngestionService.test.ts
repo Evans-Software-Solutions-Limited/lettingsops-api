@@ -181,6 +181,62 @@ describe("EmailIngestionService", () => {
         }),
       );
     });
+
+    it("uses email prefix when fromName is empty string (LLM can return \"\")", async () => {
+      mockLeadRepo.findByMessageId.mockResolvedValue(null);
+      mockLeadRepo.findByEmail.mockResolvedValue(null);
+      mockLeadRepo.create.mockResolvedValue({
+        ...mockLead,
+        id: "lead-empty-name",
+        name: "sender",
+        email: "sender@example.com",
+      });
+
+      const result = await processEmail({
+        messageId: "msg-empty-name",
+        from: "sender@example.com",
+        fromName: "",
+        subject: "Enquiry",
+        body: "Body",
+        receivedAt: "2024-06-01T10:00:00.000Z",
+      });
+
+      expect(result.action).toBe("CREATED");
+      expect(mockLeadRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "sender",
+          email: "sender@example.com",
+        }),
+      );
+    });
+
+    it("uses email prefix when fromName is whitespace-only", async () => {
+      mockLeadRepo.findByMessageId.mockResolvedValue(null);
+      mockLeadRepo.findByEmail.mockResolvedValue(null);
+      mockLeadRepo.create.mockResolvedValue({
+        ...mockLead,
+        id: "lead-ws-name",
+        name: "user",
+        email: "user@example.com",
+      });
+
+      const result = await processEmail({
+        messageId: "msg-ws-name",
+        from: "user@example.com",
+        fromName: "   \t  ",
+        subject: "Enquiry",
+        body: "Body",
+        receivedAt: "2024-06-01T10:00:00.000Z",
+      });
+
+      expect(result.action).toBe("CREATED");
+      expect(mockLeadRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "user",
+          email: "user@example.com",
+        }),
+      );
+    });
   });
 
   describe("with repository mocks", () => {
