@@ -182,7 +182,7 @@ describe("EmailIngestionService", () => {
       );
     });
 
-    it("uses email prefix when fromName is empty string (LLM can return \"\")", async () => {
+    it('uses email prefix when fromName is empty string (LLM can return "")', async () => {
       mockLeadRepo.findByMessageId.mockResolvedValue(null);
       mockLeadRepo.findByEmail.mockResolvedValue(null);
       mockLeadRepo.create.mockResolvedValue({
