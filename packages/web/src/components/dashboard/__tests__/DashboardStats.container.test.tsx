@@ -13,7 +13,6 @@ describe("DashboardStatsContainer", () => {
       data: undefined,
       isLoading: true,
       error: null,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as ReturnType<typeof useListLeads>);
 
     render(<DashboardStatsContainer />);
@@ -38,7 +37,6 @@ describe("DashboardStatsContainer", () => {
       data: mockData,
       isLoading: false,
       error: null,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as ReturnType<typeof useListLeads>);
 
     render(<DashboardStatsContainer />);
