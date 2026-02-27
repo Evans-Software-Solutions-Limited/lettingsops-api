@@ -100,7 +100,7 @@ const statusBadgeColor = (status: string) => {
     case "resolved":
       return "bg-success text-white";
     default:
-      return "bg-muted text-muted";
+      return "bg-muted text-muted-foreground";
   }
 };
 
@@ -121,7 +121,7 @@ const typeColor = (type: string) => {
     case "Viewing Enquiry":
       return "bg-accent/10 text-accent border-accent/30";
     default:
-      return "bg-muted text-muted border-border";
+      return "bg-muted text-muted-foreground border-border";
   }
 };
 
@@ -144,7 +144,7 @@ export default function Leads() {
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-text">Leads</h1>
-        <p className="text-sm text-muted mt-2">
+        <p className="text-sm text-muted-foreground mt-2">
           Manage all viewing enquiries, maintenance requests, and general
           enquiries
         </p>
@@ -158,7 +158,7 @@ export default function Leads() {
             <div className="relative">
               <IconSearch
                 size={18}
-                className="absolute left-3 top-2.5 text-muted"
+                className="absolute left-3 top-2.5 text-muted-foreground"
               />
               <Input
                 placeholder="Search by name or property..."
@@ -207,12 +207,16 @@ export default function Leads() {
         <Table>
           <TableHeader className="bg-surface border-b border-border">
             <TableRow className="hover:bg-transparent border-border">
-              <TableHead className="text-muted">Name</TableHead>
-              <TableHead className="text-muted">Property</TableHead>
-              <TableHead className="text-muted">Type</TableHead>
-              <TableHead className="text-muted">Status</TableHead>
-              <TableHead className="text-muted text-right">Date</TableHead>
-              <TableHead className="text-muted text-right">Actions</TableHead>
+              <TableHead className="text-muted-foreground">Name</TableHead>
+              <TableHead className="text-muted-foreground">Property</TableHead>
+              <TableHead className="text-muted-foreground">Type</TableHead>
+              <TableHead className="text-muted-foreground">Status</TableHead>
+              <TableHead className="text-muted-foreground text-right">
+                Date
+              </TableHead>
+              <TableHead className="text-muted-foreground text-right">
+                Actions
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -240,7 +244,7 @@ export default function Leads() {
                       {statusLabel(lead.status)}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right text-muted">
+                  <TableCell className="text-right text-muted-foreground">
                     {lead.date}
                   </TableCell>
                   <TableCell className="text-right">
@@ -260,7 +264,10 @@ export default function Leads() {
               ))
             ) : (
               <TableRow className="border-border hover:bg-transparent cursor-default">
-                <TableCell colSpan={6} className="text-center py-8 text-muted">
+                <TableCell
+                  colSpan={6}
+                  className="text-center py-8 text-muted-foreground"
+                >
                   No leads found
                 </TableCell>
               </TableRow>
@@ -271,7 +278,7 @@ export default function Leads() {
 
       {/* Pagination placeholder */}
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted">
+        <p className="text-sm text-muted-foreground">
           Showing {filteredLeads.length} of {allLeads.length} leads
         </p>
         <div className="space-x-2">

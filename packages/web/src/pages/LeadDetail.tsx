@@ -67,7 +67,7 @@ export default function LeadDetail() {
       case "resolved":
         return "bg-success text-white";
       default:
-        return "bg-muted text-muted";
+        return "bg-muted text-muted-foreground";
     }
   };
 
@@ -108,13 +108,13 @@ export default function LeadDetail() {
             <h3 className="text-lg font-semibold text-text">Contact Info</h3>
             <div className="space-y-3">
               <div>
-                <p className="text-xs text-muted font-medium uppercase">
+                <p className="text-xs text-muted-foreground font-medium uppercase">
                   Email
                 </p>
                 <p className="text-text">{leadData.email}</p>
               </div>
               <div>
-                <p className="text-xs text-muted font-medium uppercase">
+                <p className="text-xs text-muted-foreground font-medium uppercase">
                   Phone
                 </p>
                 <p className="text-text">{leadData.phone}</p>
@@ -127,13 +127,13 @@ export default function LeadDetail() {
             <h3 className="text-lg font-semibold text-text">Property</h3>
             <div className="space-y-3">
               <div>
-                <p className="text-xs text-muted font-medium uppercase">
+                <p className="text-xs text-muted-foreground font-medium uppercase">
                   Address
                 </p>
                 <p className="text-text">{leadData.property}</p>
               </div>
               <div>
-                <p className="text-xs text-muted font-medium uppercase">
+                <p className="text-xs text-muted-foreground font-medium uppercase">
                   Enquiry Type
                 </p>
                 <Badge
@@ -151,13 +151,13 @@ export default function LeadDetail() {
             <h3 className="text-lg font-semibold text-text">Qualification</h3>
             <div className="space-y-3">
               <div>
-                <p className="text-xs text-muted font-medium uppercase">
+                <p className="text-xs text-muted-foreground font-medium uppercase">
                   Budget
                 </p>
                 <p className="text-text">{leadData.budget}</p>
               </div>
               <div>
-                <p className="text-xs text-muted font-medium uppercase">
+                <p className="text-xs text-muted-foreground font-medium uppercase">
                   Move-in Date
                 </p>
                 <p className="text-text">
@@ -165,7 +165,7 @@ export default function LeadDetail() {
                 </p>
               </div>
               <div>
-                <p className="text-xs text-muted font-medium uppercase">
+                <p className="text-xs text-muted-foreground font-medium uppercase">
                   Employment
                 </p>
                 <p className="text-text">{leadData.employment}</p>
@@ -216,7 +216,7 @@ export default function LeadDetail() {
                       className={`text-xs mt-2 ${
                         msg.direction === "outbound"
                           ? "text-white/70"
-                          : "text-muted"
+                          : "text-muted-foreground"
                       }`}
                     >
                       {msg.timestamp}
@@ -228,7 +228,10 @@ export default function LeadDetail() {
 
             {/* Message Input */}
             <div className="border-t border-border pt-4 space-y-2">
-              <Label htmlFor="message" className="text-sm text-muted">
+              <Label
+                htmlFor="message"
+                className="text-sm text-muted-foreground"
+              >
                 Reply
               </Label>
               <Textarea

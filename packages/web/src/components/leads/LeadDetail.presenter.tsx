@@ -23,13 +23,13 @@ interface LeadDetailProps {
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  NEW: "bg-zinc-700 text-zinc-200",
+  NEW: "bg-muted text-muted-foreground",
   CONTACTED: "bg-blue-900/60 text-blue-300",
   QUALIFYING: "bg-amber-900/60 text-amber-300",
   QUALIFIED: "bg-teal-900/60 text-teal-300",
   VIEWING_BOOKED: "bg-emerald-900/60 text-emerald-300",
   CONVERTED: "bg-green-900/60 text-green-300",
-  ARCHIVED: "bg-zinc-800 text-zinc-500",
+  ARCHIVED: "bg-muted text-muted-foreground",
 };
 
 function Field({
@@ -98,7 +98,7 @@ export function LeadDetail({ lead, isLoading }: LeadDetailProps) {
         <span
           className={[
             "inline-flex items-center px-2.5 py-1 rounded text-xs font-medium",
-            STATUS_STYLES[lead.status] ?? "bg-zinc-700 text-zinc-200",
+            STATUS_STYLES[lead.status] ?? "bg-muted text-muted-foreground",
           ].join(" ")}
         >
           {lead.status.replace("_", " ")}

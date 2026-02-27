@@ -103,7 +103,7 @@ const statusBadgeColor = (status: string) => {
     case "resolved":
       return "bg-success text-white";
     default:
-      return "bg-muted text-muted";
+      return "bg-muted text-muted-foreground";
   }
 };
 
@@ -124,7 +124,7 @@ const typeColor = (type: string) => {
     case "Viewing Enquiry":
       return "bg-accent/10 text-accent border-accent/30";
     default:
-      return "bg-muted text-muted border-border";
+      return "bg-muted text-muted-foreground border-border";
   }
 };
 
@@ -136,7 +136,7 @@ export default function Dashboard() {
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-text">Dashboard</h1>
-        <p className="text-sm text-muted mt-2">
+        <p className="text-sm text-muted-foreground mt-2">
           Overview of your lettings pipeline
         </p>
       </div>
@@ -150,7 +150,9 @@ export default function Dashboard() {
           >
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm text-muted font-medium">{label}</p>
+                <p className="text-sm text-muted-foreground font-medium">
+                  {label}
+                </p>
                 <p className="text-3xl font-bold text-text mt-2">{value}</p>
               </div>
               <Icon size={24} className={`${color} opacity-70`} />
@@ -164,7 +166,7 @@ export default function Dashboard() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold text-text">Recent Leads</h2>
-            <p className="text-sm text-muted mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               Latest activity in your pipeline
             </p>
           </div>
@@ -182,11 +184,15 @@ export default function Dashboard() {
           <Table>
             <TableHeader className="bg-surface border-b border-border">
               <TableRow className="hover:bg-transparent border-border">
-                <TableHead className="text-muted">Name</TableHead>
-                <TableHead className="text-muted">Property</TableHead>
-                <TableHead className="text-muted">Type</TableHead>
-                <TableHead className="text-muted">Status</TableHead>
-                <TableHead className="text-muted text-right">Date</TableHead>
+                <TableHead className="text-muted-foreground">Name</TableHead>
+                <TableHead className="text-muted-foreground">
+                  Property
+                </TableHead>
+                <TableHead className="text-muted-foreground">Type</TableHead>
+                <TableHead className="text-muted-foreground">Status</TableHead>
+                <TableHead className="text-muted-foreground text-right">
+                  Date
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -213,7 +219,7 @@ export default function Dashboard() {
                       {statusLabel(lead.status)}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right text-muted">
+                  <TableCell className="text-right text-muted-foreground">
                     {lead.date}
                   </TableCell>
                 </TableRow>

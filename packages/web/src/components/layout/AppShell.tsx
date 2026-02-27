@@ -37,7 +37,7 @@ export function AppShell() {
                   "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
                   isActive
                     ? "bg-accent/10 text-accent font-medium"
-                    : "text-muted hover:bg-surface-raised hover:text-text",
+                    : "text-muted-foreground hover:bg-surface-raised hover:text-text",
                 ].join(" ")
               }
             >
@@ -55,7 +55,7 @@ export function AppShell() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-text truncate">John Doe</p>
-              <p className="text-xs text-muted truncate">Agent</p>
+              <p className="text-xs text-muted-foreground truncate">Agent</p>
             </div>
           </div>
         </div>
@@ -65,7 +65,7 @@ export function AppShell() {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top bar */}
         <header className="h-14 flex items-center px-6 border-b border-border bg-surface-raised shrink-0">
-          <span className="text-sm text-muted">
+          <span className="text-sm text-muted-foreground">
             Lettings Management Platform
           </span>
         </header>

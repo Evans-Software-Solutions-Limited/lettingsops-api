@@ -30,7 +30,7 @@ export default function Login() {
             <h1 className="text-3xl font-bold bg-gradient-to-r from-accent to-blue-400 bg-clip-text text-transparent">
               LettingsOps
             </h1>
-            <p className="text-sm text-muted">
+            <p className="text-sm text-muted-foreground">
               Centralised lettings management
             </p>
           </div>
@@ -74,7 +74,7 @@ export default function Login() {
 
           {/* Footer */}
           <div className="text-center">
-            <p className="text-xs text-muted">
+            <p className="text-xs text-muted-foreground">
               Demo: Use any email and password
             </p>
           </div>
