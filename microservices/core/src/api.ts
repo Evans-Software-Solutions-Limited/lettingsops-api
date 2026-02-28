@@ -6,10 +6,12 @@ import openapi from "@elysiajs/openapi";
 import { leadsCreateHandler } from "./application/leads/create/leadsCreateHandler";
 import { leadsGetHandler } from "./application/leads/get/leadsGetHandler";
 import { leadsListHandler } from "./application/leads/list/leadsListHandler";
+import { leadsCommunicationHandler } from "./application/leads/communication/leadsCommunicationHandler";
 import { qualificationSubmitHandler } from "./application/qualification/submit/qualificationSubmitHandler";
 import { emailIngestionHandler } from "./application/ingestion/email/emailIngestionHandler";
 import { viewingSlotsHandler } from "./application/viewings/slots/viewingSlotsHandler";
 import { viewingBookHandler } from "./application/viewings/book/viewingBookHandler";
+import { elevenLabsWebhookHandler } from "./application/webhooks/elevenlabs/elevenLabsWebhookHandler";
 
 const app = new Elysia()
   .use(openapi())
@@ -17,10 +19,13 @@ const app = new Elysia()
   .use(leadsCreateHandler)
   .use(leadsGetHandler)
   .use(leadsListHandler)
+  .use(leadsCommunicationHandler)
   // Qualification
   .use(qualificationSubmitHandler)
   // Email ingestion webhook
   .use(emailIngestionHandler)
+  // ElevenLabs webhook
+  .use(elevenLabsWebhookHandler)
   // Viewings
   .use(viewingSlotsHandler)
   .use(viewingBookHandler);

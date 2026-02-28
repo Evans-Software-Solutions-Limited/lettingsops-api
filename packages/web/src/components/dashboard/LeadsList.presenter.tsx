@@ -9,12 +9,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { IconMail, IconPhone, IconGlobe, IconFileText } from "@tabler/icons-react";
 
 export interface Lead {
   id: string;
   name: string;
   email: string;
   status: string;
+  source: "email" | "phone" | "portal" | "manual";
   score?: number | null;
   scoreCategory?: string | null;
   createdAt: string;
@@ -51,6 +53,19 @@ const STATUS_OPTIONS = [
   "CONVERTED",
   "ARCHIVED",
 ];
+
+function getSourceIcon(source: string) {
+  switch (source) {
+    case "email":
+      return <IconMail size={16} className="text-muted-foreground" />;
+    case "phone":
+      return <IconPhone size={16} className="text-muted-foreground" />;
+    case "portal":
+      return <IconGlobe size={16} className="text-muted-foreground" />;
+    default:
+      return <IconFileText size={16} className="text-muted-foreground" />;
+  }
+}
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-GB", {
@@ -102,6 +117,9 @@ export function LeadsList({
         <TableHeader>
           <TableRow className="hover:bg-transparent border-border">
             <TableHead className="text-muted-foreground text-xs uppercase tracking-wide">
+              Channel
+            </TableHead>
+            <TableHead className="text-muted-foreground text-xs uppercase tracking-wide">
               Name
             </TableHead>
             <TableHead className="text-muted-foreground text-xs uppercase tracking-wide">
@@ -122,7 +140,7 @@ export function LeadsList({
           {isLoading ? (
             <TableRow>
               <TableCell
-                colSpan={5}
+                colSpan={6}
                 className="px-4 py-8 text-center text-muted-foreground"
               >
                 Loading leads...
@@ -131,7 +149,7 @@ export function LeadsList({
           ) : leads.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={5}
+                colSpan={6}
                 className="px-4 py-8 text-center text-muted-foreground"
               >
                 No leads found.
@@ -144,10 +162,15 @@ export function LeadsList({
                 onClick={() => navigate(`/leads/${lead.id}`)}
                 className="border-border hover:bg-secondary/50 cursor-pointer transition-colors"
               >
+                <TableCell className="text-muted-foreground">
+                  <div className="flex items-center gap-2 justify-center">
+                    {getSourceIcon(lead.source)}
+                  </div>
+                </TableCell>
                 <TableCell className="font-medium text-foreground">
                   {lead.name}
                 </TableCell>
-                <TableCell className="text-muted-foreground">
+                <TableCell className="text-muted-foreground text-sm">
                   {lead.email}
                 </TableCell>
                 <TableCell>
