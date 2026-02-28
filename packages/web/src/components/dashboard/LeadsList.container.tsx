@@ -40,10 +40,13 @@ export function LeadsListContainer() {
     setPage(1);
   };
 
-  const normalizedLeads: Lead[] = (data?.leads ?? []).map((lead: LeadResponse) => ({
-    ...lead,
-    source: (lead.source as "email" | "phone" | "portal" | "manual") || "manual",
-  }));
+  const normalizedLeads: Lead[] = (data?.leads ?? []).map(
+    (lead: LeadResponse) => ({
+      ...lead,
+      source:
+        (lead.source as "email" | "phone" | "portal" | "manual") || "manual",
+    }),
+  );
 
   return (
     <LeadsList

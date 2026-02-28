@@ -29,7 +29,8 @@ export const ElevenLabsWebhookService = new Elysia({
     const leadRepo = new LeadRepository(db);
 
     const extractedFields = payload.extractedFields || {};
-    const email = extractedFields.email || `call-${payload.callId}@elevenlabs.local`;
+    const email =
+      extractedFields.email || `call-${payload.callId}@elevenlabs.local`;
     const name = extractedFields.name || "Unknown Caller";
 
     // Find or create lead

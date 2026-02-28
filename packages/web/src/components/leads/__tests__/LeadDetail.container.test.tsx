@@ -13,13 +13,7 @@ vi.mock("react-router", async () => {
 });
 
 vi.mock("../LeadDetail.presenter", () => ({
-  LeadDetail: ({
-    lead,
-    isLoading,
-  }: {
-    lead: unknown;
-    isLoading: boolean;
-  }) => (
+  LeadDetail: ({ lead, isLoading }: { lead: unknown; isLoading: boolean }) => (
     <div>
       {isLoading
         ? "Loading lead..."

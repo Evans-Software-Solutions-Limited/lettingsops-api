@@ -9,7 +9,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { IconMail, IconPhone, IconGlobe, IconFileText } from "@tabler/icons-react";
+import {
+  IconMail,
+  IconPhone,
+  IconGlobe,
+  IconFileText,
+} from "@tabler/icons-react";
 
 export interface Lead {
   id: string;

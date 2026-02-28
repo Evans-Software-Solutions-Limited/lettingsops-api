@@ -122,7 +122,9 @@ export function LeadDetail({
         <div className="col-span-1 space-y-6">
           {/* Header */}
           <div>
-            <h1 className="text-xl font-semibold text-foreground">{lead.name}</h1>
+            <h1 className="text-xl font-semibold text-foreground">
+              {lead.name}
+            </h1>
             <p className="text-sm text-muted-foreground mt-0.5">{lead.email}</p>
           </div>
 
