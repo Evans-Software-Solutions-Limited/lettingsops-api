@@ -189,6 +189,7 @@ export class LeadRepository {
       source: string;
       messageId: string;
       subject: string;
+      body?: string;
       receivedAt: string;
     },
   ): Promise<void> {
@@ -197,6 +198,7 @@ export class LeadRepository {
       source: note.source,
       messageId: note.messageId,
       subject: note.subject,
+      body: note.body,
       receivedAt: new Date(note.receivedAt),
     });
   }

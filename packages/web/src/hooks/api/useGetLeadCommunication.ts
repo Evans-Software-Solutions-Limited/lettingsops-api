@@ -35,5 +35,6 @@ export const useGetLeadCommunication = (leadId: string) => {
       return data as CommunicationResponse;
     },
     enabled: !!leadId,
+    refetchInterval: 30000, // Refetch every 30 seconds
   });
 };
