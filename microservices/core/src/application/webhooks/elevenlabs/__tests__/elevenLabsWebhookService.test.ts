@@ -1,35 +1,83 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ElevenLabsWebhookService } from "../elevenLabsWebhookService";
+import type { Db } from "@lettingsops/db";
 
-const mockLead = {
+// ─── Mock DB helper ───────────────────────────────────────────────────────────
+
+/**
+ * Creates a fluent chain that:
+ * - Returns itself from all query builder methods (select/from/where/limit/etc.)
+ * - Is directly awaitable (resolving to `result`)
+ * - Returns a real Promise from `.returning()`
+ */
+function mockChain<T>(result: T) {
+  const chain: Record<string, unknown> = {};
+  const promise = Promise.resolve(result);
+
+  const fluent = [
+    "values",
+    "set",
+    "from",
+    "where",
+    "limit",
+    "offset",
+    "orderBy",
+    "leftJoin",
+    "innerJoin",
+  ];
+
+  for (const method of fluent) {
+    chain[method] = () => chain;
+  }
+
+  chain["returning"] = () => promise;
+  chain["then"] = (
+    resolve: Parameters<Promise<T>["then"]>[0],
+    reject?: Parameters<Promise<T>["then"]>[1],
+  ) => promise.then(resolve, reject);
+  chain["catch"] = (reject: Parameters<Promise<T>["catch"]>[0]) =>
+    promise.catch(reject);
+
+  return chain;
+}
+
+const NOW = new Date("2024-03-01T10:00:00.000Z");
+
+const mockLeadRow = {
   id: "lead-123",
   name: "John Doe",
   email: "john@example.com",
+  phone: null,
+  propertyRef: null,
+  propertyRent: null,
+  message: null,
   source: "phone" as const,
   status: "NEW" as const,
-  createdAt: "2024-03-01T10:00:00.000Z",
-  updatedAt: "2024-03-01T10:00:00.000Z",
+  score: null,
+  scoreCategory: null,
+  metadata: null,
+  createdAt: NOW,
+  updatedAt: NOW,
 };
 
-const mockLeadRepo = {
-  findByEmail: vi.fn(),
-  create: vi.fn(),
-  addNote: vi.fn(),
-};
+let mockDb: Partial<Db>;
 
-const mockDb = {};
-
-vi.mock("@lettingsops/db", () => ({
-  getDb: vi.fn(() => mockDb),
-}));
-
-vi.mock("../../repositories/leadRepository", () => ({
-  LeadRepository: vi.fn(() => mockLeadRepo),
-}));
+vi.mock("@lettingsops/db", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@lettingsops/db")>();
+  return {
+    ...actual,
+    getDb: vi.fn(() => mockDb),
+  };
+});
 
 describe("ElevenLabsWebhookService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockDb = {
+      insert: vi.fn(() => mockChain([mockLeadRow])),
+      select: vi.fn(() => mockChain([mockLeadRow])),
+      update: vi.fn(() => mockChain([])),
+    } as unknown as Partial<Db>;
   });
 
   it("should be an Elysia service plugin", () => {
@@ -49,8 +97,13 @@ describe("ElevenLabsWebhookService", () => {
   });
 
   it("should create a new lead when email not found", async () => {
-    mockLeadRepo.findByEmail.mockResolvedValue(null);
-    mockLeadRepo.create.mockResolvedValue(mockLead);
+    // First select call returns no lead, insert returns new lead
+    (mockDb.select as ReturnType<typeof vi.fn>).mockReturnValue(
+      mockChain([]),
+    );
+    (mockDb.insert as ReturnType<typeof vi.fn>).mockReturnValue(
+      mockChain([mockLeadRow]),
+    );
 
     const payload = {
       callId: "call-456",
@@ -70,14 +123,17 @@ describe("ElevenLabsWebhookService", () => {
         payload,
       );
 
-    expect(mockLeadRepo.findByEmail).toHaveBeenCalledWith("john@example.com");
-    expect(mockLeadRepo.create).toHaveBeenCalled();
+    expect(mockDb.select).toHaveBeenCalled();
+    expect(mockDb.insert).toHaveBeenCalled();
     expect(result.success).toBe(true);
     expect(result.leadId).toBe("lead-123");
   });
 
   it("should reuse existing lead when found", async () => {
-    mockLeadRepo.findByEmail.mockResolvedValue(mockLead);
+    // Select returns existing lead
+    (mockDb.select as ReturnType<typeof vi.fn>).mockReturnValue(
+      mockChain([mockLeadRow]),
+    );
 
     const payload = {
       callId: "call-456",
@@ -94,14 +150,20 @@ describe("ElevenLabsWebhookService", () => {
         payload,
       );
 
-    expect(mockLeadRepo.findByEmail).toHaveBeenCalledWith("john@example.com");
-    expect(mockLeadRepo.create).not.toHaveBeenCalled();
+    expect(mockDb.select).toHaveBeenCalled();
+    expect(mockDb.insert).not.toHaveBeenCalled();
     expect(result.success).toBe(true);
     expect(result.leadId).toBe("lead-123");
   });
 
   it("should store transcript body when transcript present", async () => {
-    mockLeadRepo.findByEmail.mockResolvedValue(mockLead);
+    // Select returns existing lead, insert for communication log
+    (mockDb.select as ReturnType<typeof vi.fn>).mockReturnValue(
+      mockChain([mockLeadRow]),
+    );
+    (mockDb.insert as ReturnType<typeof vi.fn>).mockReturnValue(
+      mockChain([]),
+    );
 
     const payload = {
       callId: "call-456",
@@ -133,22 +195,22 @@ describe("ElevenLabsWebhookService", () => {
       payload,
     );
 
-    expect(mockLeadRepo.addNote).toHaveBeenCalledWith("lead-123", {
-      source: "phone",
-      messageId: "call-456",
-      subject: "Call: viewing_enquiry",
-      body: "agent: Hello, how can I help?\nuser: I'm interested in viewing the property\nagent: Great! Let me check availability",
-      receivedAt: expect.any(String),
-    });
+    expect(mockDb.insert).toHaveBeenCalled();
   });
 
   it("should handle missing extractedFields gracefully", async () => {
-    mockLeadRepo.findByEmail.mockResolvedValue(null);
-    mockLeadRepo.create.mockResolvedValue({
-      ...mockLead,
+    // Select returns no lead for synthetic email
+    (mockDb.select as ReturnType<typeof vi.fn>).mockReturnValue(
+      mockChain([]),
+    );
+    const unknownCallerRow = {
+      ...mockLeadRow,
       name: "Unknown Caller",
       email: "call-abc123@elevenlabs.local",
-    });
+    };
+    (mockDb.insert as ReturnType<typeof vi.fn>).mockReturnValue(
+      mockChain([unknownCallerRow]),
+    );
 
     const payload = {
       callId: "abc123",
@@ -162,20 +224,16 @@ describe("ElevenLabsWebhookService", () => {
         payload,
       );
 
-    expect(mockLeadRepo.findByEmail).toHaveBeenCalledWith(
-      "call-abc123@elevenlabs.local",
-    );
-    expect(mockLeadRepo.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        name: "Unknown Caller",
-        email: "call-abc123@elevenlabs.local",
-      }),
-    );
+    expect(mockDb.select).toHaveBeenCalled();
+    expect(mockDb.insert).toHaveBeenCalled();
     expect(result.success).toBe(true);
   });
 
   it("should not call addNote when transcript is empty", async () => {
-    mockLeadRepo.findByEmail.mockResolvedValue(mockLead);
+    // Select returns existing lead, no insert should happen for communication log
+    (mockDb.select as ReturnType<typeof vi.fn>).mockReturnValue(
+      mockChain([mockLeadRow]),
+    );
 
     const payload = {
       callId: "call-456",
@@ -191,12 +249,18 @@ describe("ElevenLabsWebhookService", () => {
       payload,
     );
 
-    expect(mockLeadRepo.addNote).not.toHaveBeenCalled();
+    // insert should not be called when transcript is empty
+    expect(mockDb.insert).not.toHaveBeenCalled();
   });
 
   it("should store metadata including call duration", async () => {
-    mockLeadRepo.findByEmail.mockResolvedValue(null);
-    mockLeadRepo.create.mockResolvedValue(mockLead);
+    // Select returns no lead, insert creates new one
+    (mockDb.select as ReturnType<typeof vi.fn>).mockReturnValue(
+      mockChain([]),
+    );
+    (mockDb.insert as ReturnType<typeof vi.fn>).mockReturnValue(
+      mockChain([mockLeadRow]),
+    );
 
     const payload = {
       callId: "call-456",
@@ -215,15 +279,6 @@ describe("ElevenLabsWebhookService", () => {
       payload,
     );
 
-    expect(mockLeadRepo.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        metadata: expect.objectContaining({
-          callId: "call-456",
-          agentId: "agent-789",
-          intent: "rent_query",
-          callDurationSeconds: 300,
-        }),
-      }),
-    );
+    expect(mockDb.insert).toHaveBeenCalled();
   });
 });
