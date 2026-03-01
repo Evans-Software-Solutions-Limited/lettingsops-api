@@ -21,6 +21,7 @@ export const leadsListHandler = new Elysia().use(LeadsListService).get(
             name: t.String(),
             email: t.String(),
             status: t.String(),
+            source: t.String(),
             score: t.Optional(t.Number()),
             scoreCategory: t.Optional(t.String()),
             createdAt: t.String(),

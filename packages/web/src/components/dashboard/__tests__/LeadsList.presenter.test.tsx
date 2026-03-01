@@ -18,6 +18,7 @@ describe("LeadsList", () => {
       name: "John Doe",
       email: "john@example.com",
       status: "NEW",
+      source: "email",
       createdAt: "2024-01-01T00:00:00Z",
     },
     {
@@ -25,7 +26,8 @@ describe("LeadsList", () => {
       name: "Jane Smith",
       email: "jane@example.com",
       status: "CONTACTED",
-      scoreCategory: "High",
+      source: "phone",
+      scoreCategory: "STRONG",
       createdAt: "2024-01-02T00:00:00Z",
     },
   ];

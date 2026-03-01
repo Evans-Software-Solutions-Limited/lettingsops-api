@@ -10,9 +10,9 @@ describe("LeadDetail", () => {
     phone: "+1234567890",
     propertyRef: "PROP123",
     status: "NEW",
-    source: "Website",
+    source: "email",
     score: 85,
-    scoreCategory: "High",
+    scoreCategory: "STRONG",
     createdAt: "2024-01-01T00:00:00Z",
     updatedAt: "2024-01-02T00:00:00Z",
   };
@@ -20,7 +20,12 @@ describe("LeadDetail", () => {
   it('shows "Loading lead..." when isLoading=true', () => {
     render(
       <MemoryRouter>
-        <LeadDetail lead={null} isLoading={true} />
+        <LeadDetail
+          lead={null}
+          isLoading={true}
+          communications={[]}
+          isLoadingCommunication={false}
+        />
       </MemoryRouter>,
     );
 
@@ -30,7 +35,12 @@ describe("LeadDetail", () => {
   it('shows "Lead not found." when lead=null and not loading', () => {
     render(
       <MemoryRouter>
-        <LeadDetail lead={null} isLoading={false} />
+        <LeadDetail
+          lead={null}
+          isLoading={false}
+          communications={[]}
+          isLoadingCommunication={false}
+        />
       </MemoryRouter>,
     );
 
@@ -40,7 +50,12 @@ describe("LeadDetail", () => {
   it("renders lead name, email, status badge when lead is provided", () => {
     render(
       <MemoryRouter>
-        <LeadDetail lead={mockLead} isLoading={false} />
+        <LeadDetail
+          lead={mockLead}
+          isLoading={false}
+          communications={[]}
+          isLoadingCommunication={false}
+        />
       </MemoryRouter>,
     );
 
@@ -58,7 +73,12 @@ describe("LeadDetail", () => {
 
     render(
       <MemoryRouter>
-        <LeadDetail lead={leadWithoutOptionalFields} isLoading={false} />
+        <LeadDetail
+          lead={leadWithoutOptionalFields}
+          isLoading={false}
+          communications={[]}
+          isLoadingCommunication={false}
+        />
       </MemoryRouter>,
     );
 
@@ -72,14 +92,19 @@ describe("LeadDetail", () => {
   it("renders all fields correctly when data is available", () => {
     render(
       <MemoryRouter>
-        <LeadDetail lead={mockLead} isLoading={false} />
+        <LeadDetail
+          lead={mockLead}
+          isLoading={false}
+          communications={[]}
+          isLoadingCommunication={false}
+        />
       </MemoryRouter>,
     );
 
     expect(screen.getByText("John Doe")).toBeDefined();
     expect(screen.getByText("john@example.com")).toBeDefined();
-    expect(screen.getByText("Website")).toBeDefined();
-    expect(screen.getByText("85 (High)")).toBeDefined();
+    expect(screen.getByText("email")).toBeDefined();
+    expect(screen.getByText("85 (STRONG)")).toBeDefined();
     expect(screen.getByText("PROP123")).toBeDefined();
     expect(screen.getByText("+1234567890")).toBeDefined();
   });

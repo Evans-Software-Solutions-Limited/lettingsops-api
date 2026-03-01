@@ -26,7 +26,11 @@ export default defineConfig({
         "**/leadsCreateHandler.ts",
         "**/leadsGetHandler.ts",
         "**/leadsListHandler.ts",
+        "**/leadsCommunicationHandler.ts",
+        "**/leadsCommunicationService.ts",
         "**/qualificationSubmitHandler.ts",
+        "**/elevenLabsWebhookHandler.ts",
+        "**/elevenLabsWebhookService.ts",
       ],
       // Enforce 90% minimum coverage threshold across all files
       thresholds: {
