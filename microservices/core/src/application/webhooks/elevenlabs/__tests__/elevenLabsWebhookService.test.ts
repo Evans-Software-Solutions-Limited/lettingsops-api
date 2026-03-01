@@ -98,9 +98,7 @@ describe("ElevenLabsWebhookService", () => {
 
   it("should create a new lead when email not found", async () => {
     // First select call returns no lead, insert returns new lead
-    (mockDb.select as ReturnType<typeof vi.fn>).mockReturnValue(
-      mockChain([]),
-    );
+    (mockDb.select as ReturnType<typeof vi.fn>).mockReturnValue(mockChain([]));
     (mockDb.insert as ReturnType<typeof vi.fn>).mockReturnValue(
       mockChain([mockLeadRow]),
     );
@@ -161,9 +159,7 @@ describe("ElevenLabsWebhookService", () => {
     (mockDb.select as ReturnType<typeof vi.fn>).mockReturnValue(
       mockChain([mockLeadRow]),
     );
-    (mockDb.insert as ReturnType<typeof vi.fn>).mockReturnValue(
-      mockChain([]),
-    );
+    (mockDb.insert as ReturnType<typeof vi.fn>).mockReturnValue(mockChain([]));
 
     const payload = {
       callId: "call-456",
@@ -200,9 +196,7 @@ describe("ElevenLabsWebhookService", () => {
 
   it("should handle missing extractedFields gracefully", async () => {
     // Select returns no lead for synthetic email
-    (mockDb.select as ReturnType<typeof vi.fn>).mockReturnValue(
-      mockChain([]),
-    );
+    (mockDb.select as ReturnType<typeof vi.fn>).mockReturnValue(mockChain([]));
     const unknownCallerRow = {
       ...mockLeadRow,
       name: "Unknown Caller",
@@ -255,9 +249,7 @@ describe("ElevenLabsWebhookService", () => {
 
   it("should store metadata including call duration", async () => {
     // Select returns no lead, insert creates new one
-    (mockDb.select as ReturnType<typeof vi.fn>).mockReturnValue(
-      mockChain([]),
-    );
+    (mockDb.select as ReturnType<typeof vi.fn>).mockReturnValue(mockChain([]));
     (mockDb.insert as ReturnType<typeof vi.fn>).mockReturnValue(
       mockChain([mockLeadRow]),
     );
