@@ -57,10 +57,16 @@ export const ElevenLabsWebhookService = new Elysia({
 
     // Store transcript as communication log
     if (payload.transcript && payload.transcript.length > 0) {
+      // Join transcript turns as "role: message\n"
+      const transcriptBody = payload.transcript
+        .map((turn) => `${turn.role}: ${turn.message}`)
+        .join("\n");
+
       await leadRepo.addNote(lead.id, {
         source: "phone",
         messageId: payload.callId,
         subject: `Call: ${payload.intent}`,
+        body: transcriptBody,
         receivedAt: new Date().toISOString(),
       });
     }
