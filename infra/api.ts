@@ -3,6 +3,7 @@ import {
   openAIKey,
   elevenLabsApiKey,
   elevenLabsAgentId,
+  elevenLabsWebhookSecret,
 } from "./secrets";
 
 export const lettingsAPI = new sst.aws.ApiGatewayV2("lettings-api");
@@ -14,6 +15,7 @@ lettingsAPI.route("$default", {
     OPENAI_API_KEY: openAIKey.value,
     ELEVENLABS_API_KEY: elevenLabsApiKey.value,
     ELEVENLABS_AGENT_ID: elevenLabsAgentId.value,
+    ELEVENLABS_WEBHOOK_SECRET: elevenLabsWebhookSecret.value,
   },
 });
 

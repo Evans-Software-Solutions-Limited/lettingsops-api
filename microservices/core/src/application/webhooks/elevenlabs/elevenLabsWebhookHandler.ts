@@ -1,11 +1,38 @@
 import Elysia, { t } from "elysia";
 import { ElevenLabsWebhookService } from "./elevenLabsWebhookService";
+import { verifyElevenLabsSignature } from "./elevenLabsSignatureVerification";
+
+const errorResponse = t.Object({
+  error: t.String(),
+});
+
+const successResponse = t.Object({
+  success: t.Boolean(),
+  leadId: t.String(),
+});
 
 export const elevenLabsWebhookHandler = new Elysia()
   .use(ElevenLabsWebhookService)
   .post(
     "/webhooks/elevenlabs",
     async (ctx) => {
+      // Verify the HMAC signature from ElevenLabs before processing
+      const signatureHeader = ctx.headers["elevenlabs-signature"];
+      const rawBody = await ctx.request.text();
+
+      const verificationResult = verifyElevenLabsSignature(
+        signatureHeader,
+        rawBody,
+      );
+
+      if (!verificationResult.valid) {
+        ctx.set.status = 401;
+        return {
+          error: verificationResult.error,
+        } as typeof errorResponse.static;
+      }
+
+      // Verification passed, process the webhook
       return ctx.elevenLabsWebhookService.handleWebhook(ctx.body);
     },
     {
@@ -39,10 +66,8 @@ export const elevenLabsWebhookHandler = new Elysia()
         callDurationSeconds: t.Optional(t.Number()),
       }),
       response: {
-        200: t.Object({
-          success: t.Boolean(),
-          leadId: t.String(),
-        }),
+        200: successResponse,
+        401: errorResponse,
       },
     },
   );
