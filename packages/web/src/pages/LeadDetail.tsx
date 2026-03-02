@@ -1,62 +1,100 @@
-import { useNavigate } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { IconArrowLeft, IconCheck } from "@tabler/icons-react";
-
-// Mock data
-const leadData = {
-  id: "1",
-  name: "John Smith",
-  email: "john.smith@email.com",
-  phone: "07700 123456",
-  property: "15 Market Street",
-  type: "Viewing Enquiry",
-  status: "pending",
-  budget: "£1,500 - £1,800 pcm",
-  moveInDate: "2024-04-01",
-  employment: "Software Engineer",
-};
-
-const messages = [
-  {
-    id: 1,
-    author: "John Smith",
-    direction: "inbound",
-    content:
-      "Hi, I'm interested in viewing the property at 15 Market Street. Is it available next week?",
-    timestamp: "10:30 AM",
-  },
-  {
-    id: 2,
-    author: "You",
-    direction: "outbound",
-    content:
-      "Hello John! Thank you for your interest. Yes, we have several viewing slots available next week. Would Wednesday at 2 PM work for you?",
-    timestamp: "10:45 AM",
-  },
-  {
-    id: 3,
-    author: "John Smith",
-    direction: "inbound",
-    content:
-      "Wednesday at 2 PM sounds great. Can you confirm the address and what I need to bring?",
-    timestamp: "11:00 AM",
-  },
-  {
-    id: 4,
-    author: "You",
-    direction: "outbound",
-    content:
-      "Perfect! Address is 15 Market Street, London SW1A 1AA. Please bring a form of ID and proof of current employment or income. See you then!",
-    timestamp: "11:15 AM",
-  },
-];
+import { IconArrowLeft, IconCheck, IconAlertCircle } from "@tabler/icons-react";
+import { useGetLead } from "@/hooks/api/useGetLead";
+import { useGetLeadCommunication } from "@/hooks/api/useGetLeadCommunication";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function LeadDetail() {
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+
+  const { data: leadData, isLoading, error, isError } = useGetLead(id || "");
+  const { data: communicationData, isLoading: commsLoading } =
+    useGetLeadCommunication(id || "");
+
+  if (!id) {
+    return (
+      <div className="space-y-6">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate("/leads")}
+          className="text-accent hover:bg-surface-raised"
+        >
+          <IconArrowLeft size={20} />
+          Back to Leads
+        </Button>
+        <div className="flex items-center gap-3 text-destructive">
+          <IconAlertCircle size={20} />
+          <div>
+            <p className="font-medium">Lead not found</p>
+            <p className="text-sm text-muted-foreground">
+              The lead ID is missing or invalid.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate("/leads")}
+            className="text-accent hover:bg-surface-raised"
+          >
+            <IconArrowLeft size={20} />
+            Back to Leads
+          </Button>
+          <Skeleton className="h-10 w-64" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1 space-y-6">
+            {[...Array(3)].map((_, i) => (
+              <Skeleton key={i} className="h-32 w-full" />
+            ))}
+          </div>
+          <div className="lg:col-span-2">
+            <Skeleton className="h-96 w-full" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError || !leadData) {
+    return (
+      <div className="space-y-6">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate("/leads")}
+          className="text-accent hover:bg-surface-raised"
+        >
+          <IconArrowLeft size={20} />
+          Back to Leads
+        </Button>
+        <div className="flex items-center gap-3 text-destructive">
+          <IconAlertCircle size={20} />
+          <div>
+            <p className="font-medium">Error loading lead</p>
+            <p className="text-sm text-muted-foreground">
+              {error instanceof Error ? error.message : "An error occurred"}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const statusBadgeColor = (status: string) => {
     switch (status) {
@@ -122,54 +160,43 @@ export default function LeadDetail() {
             </div>
           </Card>
 
-          {/* Property & Type */}
+          {/* Lead Info */}
           <Card className="bg-surface-raised border-border p-6 space-y-4">
-            <h3 className="text-lg font-semibold text-text">Property</h3>
+            <h3 className="text-lg font-semibold text-text">Lead Details</h3>
             <div className="space-y-3">
+              {leadData.propertyRef && (
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium uppercase">
+                    Property Ref
+                  </p>
+                  <p className="text-text">{leadData.propertyRef}</p>
+                </div>
+              )}
               <div>
                 <p className="text-xs text-muted-foreground font-medium uppercase">
-                  Address
+                  Source
                 </p>
-                <p className="text-text">{leadData.property}</p>
+                <p className="text-text">{leadData.source}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground font-medium uppercase">
-                  Enquiry Type
-                </p>
-                <Badge
-                  variant="outline"
-                  className="bg-accent/10 text-accent border-accent/30"
-                >
-                  {leadData.type}
-                </Badge>
-              </div>
-            </div>
-          </Card>
-
-          {/* Qualification Fields */}
-          <Card className="bg-surface-raised border-border p-6 space-y-4">
-            <h3 className="text-lg font-semibold text-text">Qualification</h3>
-            <div className="space-y-3">
-              <div>
-                <p className="text-xs text-muted-foreground font-medium uppercase">
-                  Budget
-                </p>
-                <p className="text-text">{leadData.budget}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground font-medium uppercase">
-                  Move-in Date
+                  Created
                 </p>
                 <p className="text-text">
-                  {new Date(leadData.moveInDate).toLocaleDateString()}
+                  {new Date(leadData.createdAt).toLocaleDateString()}
                 </p>
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground font-medium uppercase">
-                  Employment
-                </p>
-                <p className="text-text">{leadData.employment}</p>
-              </div>
+              {leadData.score !== undefined && (
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium uppercase">
+                    Score
+                  </p>
+                  <p className="text-text">
+                    {leadData.score}
+                    {leadData.scoreCategory && ` (${leadData.scoreCategory})`}
+                  </p>
+                </div>
+              )}
             </div>
           </Card>
 
@@ -194,37 +221,67 @@ export default function LeadDetail() {
             <h3 className="text-lg font-semibold text-text">Conversation</h3>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto space-y-4 pr-2">
-              {messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex ${
-                    msg.direction === "outbound"
-                      ? "justify-end"
-                      : "justify-start"
-                  }`}
-                >
-                  <div
-                    className={`max-w-xs lg:max-w-md px-4 py-3 rounded-lg ${
-                      msg.direction === "outbound"
-                        ? "bg-accent text-white"
-                        : "bg-surface text-text border border-border"
-                    }`}
-                  >
-                    <p className="text-sm">{msg.content}</p>
-                    <p
-                      className={`text-xs mt-2 ${
-                        msg.direction === "outbound"
-                          ? "text-white/70"
-                          : "text-muted-foreground"
-                      }`}
-                    >
-                      {msg.timestamp}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {commsLoading ? (
+              <div className="flex-1 space-y-4 pr-2">
+                {[...Array(3)].map((_, i) => (
+                  <Skeleton key={i} className="h-16 w-2/3" />
+                ))}
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+                {communicationData &&
+                communicationData.communications.length > 0 ? (
+                  communicationData.communications.map((msg) => {
+                    const content =
+                      msg.body ||
+                      msg.transcript?.map((t) => t.message).join(" ") ||
+                      msg.subject ||
+                      "No content available";
+                    const timestamp = new Date(
+                      msg.receivedAt,
+                    ).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    });
+                    const direction = msg.direction || msg.source || "inbound";
+
+                    return (
+                      <div
+                        key={msg.id}
+                        className={`flex ${
+                          direction === "outbound"
+                            ? "justify-end"
+                            : "justify-start"
+                        }`}
+                      >
+                        <div
+                          className={`max-w-xs lg:max-w-md px-4 py-3 rounded-lg ${
+                            direction === "outbound"
+                              ? "bg-accent text-white"
+                              : "bg-surface text-text border border-border"
+                          }`}
+                        >
+                          <p className="text-sm">{content}</p>
+                          <p
+                            className={`text-xs mt-2 ${
+                              direction === "outbound"
+                                ? "text-white/70"
+                                : "text-muted-foreground"
+                            }`}
+                          >
+                            {timestamp}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p className="text-center text-muted-foreground py-4">
+                    No communications yet
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Message Input */}
             <div className="border-t border-border pt-4 space-y-2">
