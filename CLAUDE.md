@@ -15,22 +15,23 @@ Automated lettings operations platform. AI-powered enquiry qualification, viewin
 
 ## Key Directories
 
-| Path | Purpose |
-|------|---------|
-| `microservices/core/src/application/` | Business logic, repositories |
-| `microservices/core/src/application/leads/` | Lead CRUD: create, get, list, communicate |
-| `microservices/core/src/application/webhooks/` | External integrations: ElevenLabs, email |
-| `microservices/core/src/application/qualification/` | Tenant vetting, data validation |
-| `microservices/core/src/application/viewings/` | Slot management, booking |
-| `microservices/core/src/application/repositories/` | Data access layer (Drizzle) |
-| `packages/web/src/` | Dashboard React app |
-| `packages/db/src/schema.ts` | Drizzle schema definitions |
-| `packages/db/migrations/` | SQL migrations |
-| `infra/` | SST resource definitions |
+| Path                                                | Purpose                                   |
+| --------------------------------------------------- | ----------------------------------------- |
+| `microservices/core/src/application/`               | Business logic, repositories              |
+| `microservices/core/src/application/leads/`         | Lead CRUD: create, get, list, communicate |
+| `microservices/core/src/application/webhooks/`      | External integrations: ElevenLabs, email  |
+| `microservices/core/src/application/qualification/` | Tenant vetting, data validation           |
+| `microservices/core/src/application/viewings/`      | Slot management, booking                  |
+| `microservices/core/src/application/repositories/`  | Data access layer (Drizzle)               |
+| `packages/web/src/`                                 | Dashboard React app                       |
+| `packages/db/src/schema.ts`                         | Drizzle schema definitions                |
+| `packages/db/migrations/`                           | SQL migrations                            |
+| `infra/`                                            | SST resource definitions                  |
 
 ## Standards
 
 ### Code Quality
+
 - **Typecheck:** `bun run typecheck`
 - **Lint:** `bun run lint`
 - **Format:** `bun run prettier:check` / `--write`
@@ -38,6 +39,7 @@ Automated lettings operations platform. AI-powered enquiry qualification, viewin
 - **Tests:** `bun run test:unit` (Vitest)
 
 ### Testing Rules
+
 - **Coverage threshold:** 90% (lines, functions, branches, statements) — non-negotiable
 - **No fake tests.** All tests must prove behaviour.
 - **Coverage includes:** `src/application/**/*.ts` and `src/**/repositories/*.ts`
@@ -45,6 +47,7 @@ Automated lettings operations platform. AI-powered enquiry qualification, viewin
 - **Test structure:** Colocate tests in `__tests__/` directory per module
 
 ### Elysia Routes
+
 - Route handlers are thin (parse input, call service/repository)
 - Functional logic lives in repositories and service classes
 - Schema validation: `t.Object({...})` for request bodies
@@ -52,12 +55,14 @@ Automated lettings operations platform. AI-powered enquiry qualification, viewin
 - Error handling: 400/401/404/409/422/500 with descriptive messages
 
 ### Frontend
+
 - Container/Presenter pattern: containers handle logic and state, presenters are pure
 - Global state via context (user, leads, auth)
 - Shadcn UI for components
 - Tests: rendering, user interactions, API mocking
 
 ### Database Migrations
+
 - Each migration in `packages/db/migrations/` (SQL + meta JSON)
 - Schema versioned in `packages/db/src/schema.ts`
 - Migrations must be idempotent and reversible
@@ -75,6 +80,7 @@ bun run test:unit      # Vitest (must hit 90% coverage)
 ## Dangerous Areas
 
 ### Webhook Ingestion (Email & ElevenLabs)
+
 - **Files:** `microservices/core/src/application/webhooks/elevenlabs/`, `microservices/core/src/application/ingestion/email/`
 - **Risk:** Unvalidated external input, spoofing, duplicate processing, PII handling
 - **Rules:**
@@ -86,6 +92,7 @@ bun run test:unit      # Vitest (must hit 90% coverage)
   - Never trust caller ID / sender email without verification
 
 ### Lead Data & Tenant Information
+
 - **Files:** `microservices/core/src/application/leads/`, `microservices/core/src/application/qualification/`
 - **Risk:** Data accuracy, privacy, discrimination, compliance (FCA, GDPR)
 - **Rules:**
@@ -96,6 +103,7 @@ bun run test:unit      # Vitest (must hit 90% coverage)
   - Ensure compliance logging for all qualification decisions
 
 ### Viewing Slot Booking
+
 - **Files:** `microservices/core/src/application/viewings/`
 - **Risk:** Double-booking, scheduling conflicts, overbooking
 - **Rules:**

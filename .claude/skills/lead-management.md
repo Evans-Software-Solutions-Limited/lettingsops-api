@@ -31,6 +31,7 @@ Use this when creating, querying, or updating leads in the database, including q
 ## Common Patterns
 
 ### Lead Creation
+
 ```ts
 const lead = await leadsRepository.create({
   name,
@@ -45,14 +46,16 @@ const lead = await leadsRepository.create({
 ```
 
 ### Status Transition
+
 ```ts
-await leadsRepository.updateStatus(leadId, 'QUALIFIED', {
-  reason: 'Income verified',
+await leadsRepository.updateStatus(leadId, "QUALIFIED", {
+  reason: "Income verified",
   updatedBy: userId,
 });
 ```
 
 ### Qualification
+
 ```ts
 const qualification = {
   leadId,
