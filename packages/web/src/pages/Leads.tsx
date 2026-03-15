@@ -19,75 +19,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { IconSearch } from "@tabler/icons-react";
-
-// Mock data - in production, use TanStack Query
-const allLeads = [
-  {
-    id: "1",
-    name: "John Smith",
-    property: "15 Market Street",
-    type: "Viewing Enquiry",
-    status: "pending",
-    date: "Today",
-  },
-  {
-    id: "2",
-    name: "Sarah Johnson",
-    property: "42 Park Avenue",
-    type: "General Enquiry",
-    status: "new",
-    date: "Today",
-  },
-  {
-    id: "3",
-    name: "Michael Chen",
-    property: "9 Oxford Lane",
-    type: "Maintenance",
-    status: "in_progress",
-    date: "Yesterday",
-  },
-  {
-    id: "4",
-    name: "Emma Williams",
-    property: "87 Bridge Road",
-    type: "Viewing Enquiry",
-    status: "resolved",
-    date: "2 days ago",
-  },
-  {
-    id: "5",
-    name: "David Brown",
-    property: "52 High Street",
-    type: "General Enquiry",
-    status: "pending",
-    date: "3 days ago",
-  },
-  {
-    id: "6",
-    name: "Lisa Anderson",
-    property: "120 Elm Street",
-    type: "Maintenance",
-    status: "resolved",
-    date: "1 week ago",
-  },
-  {
-    id: "7",
-    name: "James Taylor",
-    property: "33 King Road",
-    type: "Viewing Enquiry",
-    status: "new",
-    date: "5 days ago",
-  },
-  {
-    id: "8",
-    name: "Rachel Lee",
-    property: "76 Queen Lane",
-    type: "General Enquiry",
-    status: "in_progress",
-    date: "3 days ago",
-  },
-];
+import { IconSearch, IconAlertCircle } from "@tabler/icons-react";
+import { useListLeads } from "@/hooks/api/useListLeads";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const statusBadgeColor = (status: string) => {
   switch (status) {
@@ -114,26 +48,18 @@ const statusLabel = (status: string) => {
   return labels[status] || status;
 };
 
-const typeColor = (type: string) => {
-  switch (type) {
-    case "Maintenance":
-      return "bg-warning/10 text-warning border-warning/30";
-    case "Viewing Enquiry":
-      return "bg-accent/10 text-accent border-accent/30";
-    default:
-      return "bg-muted text-muted-foreground border-border";
-  }
-};
-
 export default function Leads() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const filteredLeads = allLeads.filter((lead) => {
-    const matchesSearch =
-      lead.name.toLowerCase().includes(search.toLowerCase()) ||
-      lead.property.toLowerCase().includes(search.toLowerCase());
+  const { data: leadsResponse, isLoading, error } = useListLeads();
+  const leads = leadsResponse?.leads || [];
+
+  const filteredLeads = leads.filter((lead) => {
+    const matchesSearch = (lead.name || "")
+      .toLowerCase()
+      .includes(search.toLowerCase());
     const matchesStatus =
       statusFilter === "all" || lead.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -204,102 +130,128 @@ export default function Leads() {
 
       {/* Leads Table */}
       <div className="bg-surface-raised border border-border rounded-lg overflow-hidden">
-        <Table>
-          <TableHeader className="bg-surface border-b border-border">
-            <TableRow className="hover:bg-transparent border-border">
-              <TableHead className="text-muted-foreground">Name</TableHead>
-              <TableHead className="text-muted-foreground">Property</TableHead>
-              <TableHead className="text-muted-foreground">Type</TableHead>
-              <TableHead className="text-muted-foreground">Status</TableHead>
-              <TableHead className="text-muted-foreground text-right">
-                Date
-              </TableHead>
-              <TableHead className="text-muted-foreground text-right">
-                Actions
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredLeads.length > 0 ? (
-              filteredLeads.map((lead) => (
-                <TableRow
-                  key={lead.id}
-                  className="border-border hover:bg-surface cursor-pointer transition-colors"
-                  onClick={() => navigate(`/leads/${lead.id}`)}
-                >
-                  <TableCell className="text-text font-medium">
-                    {lead.name}
-                  </TableCell>
-                  <TableCell className="text-text">{lead.property}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={`${typeColor(lead.type)} border`}
-                    >
-                      {lead.type}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={statusBadgeColor(lead.status)}>
-                      {statusLabel(lead.status)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right text-muted-foreground">
-                    {lead.date}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-accent hover:bg-surface-elevated"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/leads/${lead.id}`);
-                      }}
-                    >
-                      View
-                    </Button>
+        {isLoading ? (
+          <div className="p-6 space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <Skeleton key={i} className="h-12 w-full" />
+            ))}
+          </div>
+        ) : error ? (
+          <div className="p-6">
+            <div className="flex items-center gap-3 text-destructive">
+              <IconAlertCircle size={20} />
+              <div>
+                <p className="font-medium">Error loading leads</p>
+                <p className="text-sm text-muted-foreground">
+                  {error instanceof Error ? error.message : "An error occurred"}
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader className="bg-surface border-b border-border">
+              <TableRow className="hover:bg-transparent border-border">
+                <TableHead className="text-muted-foreground">Name</TableHead>
+                <TableHead className="text-muted-foreground">Email</TableHead>
+                <TableHead className="text-muted-foreground">Source</TableHead>
+                <TableHead className="text-muted-foreground">Status</TableHead>
+                <TableHead className="text-muted-foreground text-right">
+                  Score
+                </TableHead>
+                <TableHead className="text-muted-foreground text-right">
+                  Actions
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredLeads.length > 0 ? (
+                filteredLeads.map((lead) => (
+                  <TableRow
+                    key={lead.id}
+                    className="border-border hover:bg-surface cursor-pointer transition-colors"
+                    onClick={() => navigate(`/leads/${lead.id}`)}
+                  >
+                    <TableCell className="text-text font-medium">
+                      {lead.name}
+                    </TableCell>
+                    <TableCell className="text-text">{lead.email}</TableCell>
+                    <TableCell className="text-text">{lead.source}</TableCell>
+                    <TableCell>
+                      <Badge className={statusBadgeColor(lead.status)}>
+                        {statusLabel(lead.status)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right text-muted-foreground">
+                      {lead.score ? (
+                        <>
+                          <span className="font-medium">{lead.score}</span>
+                          {lead.scoreCategory && (
+                            <span className="text-xs ml-1">
+                              ({lead.scoreCategory})
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        "-"
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-accent hover:bg-surface-elevated"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/leads/${lead.id}`);
+                        }}
+                      >
+                        View
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow className="border-border hover:bg-transparent cursor-default">
+                  <TableCell
+                    colSpan={6}
+                    className="text-center py-8 text-muted-foreground"
+                  >
+                    No leads found
                   </TableCell>
                 </TableRow>
-              ))
-            ) : (
-              <TableRow className="border-border hover:bg-transparent cursor-default">
-                <TableCell
-                  colSpan={6}
-                  className="text-center py-8 text-muted-foreground"
-                >
-                  No leads found
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+              )}
+            </TableBody>
+          </Table>
+        )}
       </div>
 
       {/* Pagination placeholder */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          Showing {filteredLeads.length} of {allLeads.length} leads
-        </p>
-        <div className="space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-border text-text hover:bg-surface-raised"
-            disabled
-          >
-            Previous
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-border text-text hover:bg-surface-raised"
-            disabled
-          >
-            Next
-          </Button>
+      {!isLoading && !error && leadsResponse && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Showing {filteredLeads.length} of {leadsResponse.total} leads
+          </p>
+          <div className="space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-border text-text hover:bg-surface-raised"
+              disabled
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-border text-text hover:bg-surface-raised"
+              disabled
+            >
+              Next
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
