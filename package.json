@@ -24,6 +24,7 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.28.0",
     "sst": "^3"
   }
 }
