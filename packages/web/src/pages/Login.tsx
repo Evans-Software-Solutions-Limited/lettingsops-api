@@ -22,23 +22,28 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface p-4">
-      <Card className="w-full max-w-md bg-surface-elevated border border-border">
+    <div className="min-h-screen flex items-center justify-center bg-surface p-4 relative overflow-hidden">
+      {/* Subtle radial gradient backdrop */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(59,130,246,0.08),transparent_60%)]" />
+
+      <Card className="relative w-full max-w-sm bg-surface-elevated border border-border shadow-2xl shadow-black/20">
         <div className="p-8 space-y-6">
           {/* Logo/Wordmark */}
-          <div className="text-center space-y-2">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-accent to-blue-400 bg-clip-text text-transparent">
+          <div className="text-center space-y-1.5">
+            <h1 className="text-2xl font-semibold bg-gradient-to-r from-accent to-blue-400 bg-clip-text text-transparent tracking-tight">
               LettingsOps
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Centralised lettings management
             </p>
           </div>
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="email" className="text-xs font-medium">
+                Email
+              </Label>
               <Input
                 id="email"
                 type="email"
@@ -46,12 +51,14 @@ export default function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="bg-surface-raised border-border"
+                className="bg-surface border-border h-9"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="password" className="text-xs font-medium">
+                Password
+              </Label>
               <Input
                 id="password"
                 type="password"
@@ -59,13 +66,13 @@ export default function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="bg-surface-raised border-border"
+                className="bg-surface border-border h-9"
               />
             </div>
 
             <Button
               type="submit"
-              className="w-full bg-accent hover:bg-accent-dark text-white"
+              className="w-full bg-accent hover:bg-accent-dark text-white h-9 mt-2"
               disabled={isLoading}
             >
               {isLoading ? "Signing in..." : "Sign In"}
@@ -73,11 +80,9 @@ export default function Login() {
           </form>
 
           {/* Footer */}
-          <div className="text-center">
-            <p className="text-xs text-muted-foreground">
-              Demo: Use any email and password
-            </p>
-          </div>
+          <p className="text-center text-[11px] text-muted-foreground">
+            Demo: Use any email and password
+          </p>
         </div>
       </Card>
     </div>

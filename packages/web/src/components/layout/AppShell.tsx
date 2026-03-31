@@ -1,9 +1,10 @@
-import { NavLink, Outlet } from "react-router";
+import { NavLink, Outlet, useLocation } from "react-router";
 import {
   IconLayoutDashboard,
   IconUsers,
   IconTools,
   IconSettings,
+  IconChevronRight,
 } from "@tabler/icons-react";
 
 const navItems = [
@@ -12,6 +13,43 @@ const navItems = [
   { to: "/maintenance", label: "Maintenance", icon: IconTools, end: false },
   { to: "/settings", label: "Settings", icon: IconSettings, end: false },
 ];
+
+function Breadcrumbs() {
+  const location = useLocation();
+  const segments = location.pathname.split("/").filter(Boolean);
+
+  if (segments.length === 0) return null;
+
+  const crumbs = segments.map((seg) => {
+    const label = seg.charAt(0).toUpperCase() + seg.slice(1);
+    return label;
+  });
+
+  return (
+    <div className="flex items-center gap-1.5 text-sm">
+      {crumbs.map((crumb, i) => (
+        <span key={i} className="flex items-center gap-1.5">
+          {i > 0 && (
+            <IconChevronRight
+              size={14}
+              className="text-muted-foreground/50"
+              stroke={1.5}
+            />
+          )}
+          <span
+            className={
+              i === crumbs.length - 1
+                ? "text-text font-medium"
+                : "text-muted-foreground"
+            }
+          >
+            {crumb}
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+}
 
 export function AppShell() {
   return (
@@ -26,7 +64,7 @@ export function AppShell() {
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 py-4 px-2 space-y-1">
+        <nav className="flex-1 py-3 px-2.5 space-y-0.5">
           {navItems.map(({ to, label, icon: Icon, end }) => (
             <NavLink
               key={to}
@@ -34,9 +72,9 @@ export function AppShell() {
               end={end}
               className={({ isActive }) =>
                 [
-                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
                   isActive
-                    ? "bg-accent/10 text-accent font-medium"
+                    ? "bg-accent/10 text-accent font-medium shadow-[inset_0_0_0_1px_rgba(59,130,246,0.15)]"
                     : "text-muted-foreground hover:bg-surface-raised hover:text-text",
                 ].join(" ")
               }
@@ -48,14 +86,18 @@ export function AppShell() {
         </nav>
 
         {/* User profile at bottom */}
-        <div className="border-t border-border p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-accent text-sm font-semibold">
+        <div className="border-t border-border p-3.5">
+          <div className="flex items-center gap-3 px-1">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-accent/30 to-accent/10 flex items-center justify-center text-accent text-xs font-semibold ring-1 ring-accent/20">
               JD
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-text truncate">John Doe</p>
-              <p className="text-xs text-muted-foreground truncate">Agent</p>
+              <p className="text-sm font-medium text-text truncate leading-tight">
+                John Doe
+              </p>
+              <p className="text-xs text-muted-foreground truncate leading-tight mt-0.5">
+                Agent
+              </p>
             </div>
           </div>
         </div>
@@ -64,10 +106,14 @@ export function AppShell() {
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top bar */}
-        <header className="h-14 flex items-center px-6 border-b border-border bg-surface-raised shrink-0">
-          <span className="text-sm text-muted-foreground">
-            Lettings Management Platform
-          </span>
+        <header className="h-14 flex items-center justify-between px-6 border-b border-border bg-surface shrink-0">
+          <Breadcrumbs />
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span className="w-1.5 h-1.5 rounded-full bg-success pulse-dot" />
+              Connected
+            </span>
+          </div>
         </header>
 
         {/* Page content */}

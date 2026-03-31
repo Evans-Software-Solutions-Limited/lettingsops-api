@@ -43,24 +43,25 @@ describe("LeadsList", () => {
     onStatusFilter: vi.fn(),
   };
 
-  it('shows "Loading leads..." when isLoading=true', () => {
-    render(
+  it("shows skeleton rows when isLoading=true", () => {
+    const { container } = render(
       <MemoryRouter>
         <LeadsList {...defaultProps} isLoading={true} />
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("Loading leads...")).toBeDefined();
+    const skeletons = container.querySelectorAll(".skeleton");
+    expect(skeletons.length).toBeGreaterThan(0);
   });
 
-  it('shows "No leads found." when leads=[] and not loading', () => {
+  it('shows "No leads found" when leads=[] and not loading', () => {
     render(
       <MemoryRouter>
         <LeadsList {...defaultProps} leads={[]} total={0} />
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("No leads found.")).toBeDefined();
+    expect(screen.getByText("No leads found")).toBeDefined();
   });
 
   it("renders a row for each lead with name, email, status", () => {
