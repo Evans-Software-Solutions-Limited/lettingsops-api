@@ -180,3 +180,87 @@ After creating each IAM role in AWS:
 3. Paste into the corresponding GitHub secret (`AWS_ROLE_ARN_PR`, `AWS_ROLE_ARN_PREPROD`, or `AWS_ROLE_ARN_PRODUCTION`).
 
 No access keys are required when using OIDC; the workflows use `aws-actions/configure-aws-credentials@v4` with `role-to-assume`.
+
+---
+
+## 7. Branch Protection on `main`
+
+`main` is the source of truth for preprod and (via Release Please) production deploys.
+Direct pushes and unreviewed merges to `main` are not acceptable once real tenant
+traffic is in scope. The settings below are the target state required by Phase 1
+(spec `01-platform-hardening`, task **A3**).
+
+### 7.1 Required settings
+
+Configure via **Settings → Branches → Branch protection rules → Add rule** (or
+**Settings → Rules → Rulesets → New ruleset** if classic protection is unavailable).
+
+Apply to: `main`.
+
+- **Require a pull request before merging:** on.
+  - **Require approvals:** 1 (Bradley acts as both author and reviewer for now —
+    self-approval is allowed by default on org-owned private repos).
+  - **Dismiss stale approvals when new commits are pushed:** on.
+- **Require status checks to pass before merging:** on.
+  - **Require branches to be up to date before merging:** on.
+  - **Required checks:** the five jobs from `pr-checks.yml`:
+    - `Prettier check`
+    - `Typecheck`
+    - `Lint`
+    - `Build`
+    - `Unit tests`
+- **Require conversation resolution before merging:** on.
+- **Require linear history:** on (enforces squash-merge workflow).
+- **Do not allow bypassing the above settings:** on (no admin override).
+- **Restrict who can push to matching branches:** restrict to GitHub Actions
+  (so Release Please bot can push its release branches; humans push only via PR).
+- **Allow force pushes:** off.
+- **Allow deletions:** off.
+
+Repository-level merge settings (**Settings → General → Pull Requests**) — confirm
+these are already correct (verified 2026-05-19 via `gh api repos/.../`):
+
+- `allow_squash_merge: true` — squash is the merge strategy of record.
+- `allow_merge_commit: false` — disable merge commits to enforce linear history.
+- `allow_rebase_merge: false` — disable rebase-merge for the same reason.
+- `delete_branch_on_merge: true` — branches are deleted after squash-merge. ✓ already on.
+- `squash_merge_commit_title: COMMIT_OR_PR_TITLE` and
+  `squash_merge_commit_message: COMMIT_MESSAGES` — keeps Conventional Commit titles
+  intact for Release Please. ✓ already set.
+
+### 7.2 Current status (2026-05-19)
+
+**Branch protection is NOT currently enabled.** Verified via:
+
+```bash
+$ gh api repos/Evans-Software-Solutions-Limited/lettingsops-api/branches/main/protection
+{"message":"Upgrade to GitHub Pro or make this repository public to enable this
+feature.","status":"403"}
+
+$ gh api repos/Evans-Software-Solutions-Limited/lettingsops-api/rulesets
+{"message":"Upgrade to GitHub Pro or make this repository public to enable this
+feature.","status":"403"}
+```
+
+The `Evans-Software-Solutions-Limited` org's current plan does not unlock branch
+protection or rulesets for private repos. **Resolving this requires one of:**
+
+1. Upgrade the org from GitHub Free to **GitHub Team** (cheapest path; unlocks
+   classic branch protection and rulesets on private repos). Recommended.
+2. Switch the repo `visibility: private → public`. Unlocks the feature on the free
+   tier but exposes source code — not appropriate here.
+3. Ship without enforcement until the upgrade lands. Mitigations in the interim:
+   - Manual discipline: never push to `main`; always PR + self-review.
+   - PR checks (`pr-checks.yml`) still run on every PR even without enforcement —
+     they just can't be made _required_. A merge with red checks is possible but
+     visible.
+   - The `release-please` workflow only opens release PRs from `main`'s history, so
+     accidental direct pushes to `main` are at least visible in the release diff.
+
+### 7.3 Action items
+
+- [ ] Upgrade `Evans-Software-Solutions-Limited` org to GitHub Team (or accept the
+      interim risk and revisit before go-live in Phase 4).
+- [ ] After upgrade, apply the §7.1 ruleset and re-run the verification command —
+      the response should switch from `403` to a JSON object describing the protection.
+- [ ] Update this section's "Current status" once enforced.
