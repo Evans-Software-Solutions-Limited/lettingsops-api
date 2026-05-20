@@ -1,0 +1,74 @@
+/**
+ * ApiKeyRepository
+ *
+ * Data access for server-to-server API keys.
+ *
+ * Raw keys are never stored. The caller (key-issuance handler) hashes the raw
+ * key with sha-256 before passing it in via `create()`, and lookups happen by
+ * hash via `findActive(keyHash)`. A key is "active" when `revoked_at IS NULL`.
+ */
+import { and, desc, eq, isNull } from "drizzle-orm";
+import { type Db, apiKeys, type ApiKeyRow, getDb } from "@lettingsops/db";
+
+export interface CreateApiKeyInput {
+  agencyId: string;
+  name: string;
+  keyHash: string;
+  prefix: string;
+}
+
+export class ApiKeyRepository {
+  static readonly key = "ApiKeyRepository";
+
+  private db: Db;
+
+  constructor(db?: Db) {
+    this.db = db ?? getDb();
+  }
+
+  async create(input: CreateApiKeyInput): Promise<ApiKeyRow> {
+    const [row] = await this.db
+      .insert(apiKeys)
+      .values({
+        agencyId: input.agencyId,
+        name: input.name,
+        keyHash: input.keyHash,
+        prefix: input.prefix,
+      })
+      .returning();
+
+    if (!row) throw new Error("Failed to create api key — no row returned");
+    return row;
+  }
+
+  async findActive(keyHash: string): Promise<ApiKeyRow | null> {
+    const [row] = await this.db
+      .select()
+      .from(apiKeys)
+      .where(and(eq(apiKeys.keyHash, keyHash), isNull(apiKeys.revokedAt)))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async revoke(id: string): Promise<void> {
+    await this.db
+      .update(apiKeys)
+      .set({ revokedAt: new Date() })
+      .where(eq(apiKeys.id, id));
+  }
+
+  async touch(id: string): Promise<void> {
+    await this.db
+      .update(apiKeys)
+      .set({ lastUsedAt: new Date() })
+      .where(eq(apiKeys.id, id));
+  }
+
+  async listForAgency(agencyId: string): Promise<ApiKeyRow[]> {
+    return this.db
+      .select()
+      .from(apiKeys)
+      .where(eq(apiKeys.agencyId, agencyId))
+      .orderBy(desc(apiKeys.createdAt));
+  }
+}
