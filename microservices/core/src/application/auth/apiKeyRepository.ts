@@ -51,10 +51,14 @@ export class ApiKeyRepository {
   }
 
   async revoke(id: string): Promise<void> {
+    // Guard against double-revoke: only update rows that are still active.
+    // Without `isNull(revokedAt)` in the WHERE, a second `revoke(id)` would
+    // overwrite the original `revoked_at` timestamp and destroy the audit
+    // trail for "when was this key killed?". The DB enforces idempotence.
     await this.db
       .update(apiKeys)
       .set({ revokedAt: new Date() })
-      .where(eq(apiKeys.id, id));
+      .where(and(eq(apiKeys.id, id), isNull(apiKeys.revokedAt)));
   }
 
   async touch(id: string): Promise<void> {

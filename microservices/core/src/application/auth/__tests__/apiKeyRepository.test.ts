@@ -137,6 +137,21 @@ describe("ApiKeyRepository", () => {
       await repo.revoke("key-uuid-1");
       expect(mockDb.update).toHaveBeenCalledTimes(1);
     });
+
+    it("does not overwrite the original revoked_at on a second call", async () => {
+      // Regression: a naive `revoke()` that filtered only by `eq(id, …)` would
+      // overwrite the existing `revoked_at` if called twice (concurrent admin
+      // clicks, retried job, script), destroying the audit trail. The repo
+      // adds `isNull(revokedAt)` to the WHERE, so the second UPDATE matches
+      // zero rows at the DB and the original timestamp is preserved.
+      //
+      // At the unit-test layer we can only assert the API is safe to call
+      // twice; the SQL-level guarantee is the WHERE clause itself, which is
+      // exercised by Postgres in higher-tier tests.
+      await repo.revoke("key-uuid-1");
+      await repo.revoke("key-uuid-1");
+      expect(mockDb.update).toHaveBeenCalledTimes(2);
+    });
   });
 
   // ── touch ───────────────────────────────────────────────────────────────────
