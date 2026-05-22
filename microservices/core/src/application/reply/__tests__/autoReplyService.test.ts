@@ -462,8 +462,14 @@ describe("AutoReplyService", () => {
   });
 
   describe("Logging", () => {
-    it("should log successful reply send", async () => {
-      const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    it("emits a structured 'Auto-reply sent' line carrying agencyId + conversationId, without leaking tenantEmail", async () => {
+      const stdoutLines: string[] = [];
+      const stdoutSpy = vi
+        .spyOn(process.stdout, "write")
+        .mockImplementation((chunk: string | Uint8Array) => {
+          stdoutLines.push(chunk.toString());
+          return true;
+        });
 
       const result: ConversationStateResult = {
         conversationId: "conv-uuid-12",
@@ -487,11 +493,24 @@ describe("AutoReplyService", () => {
         agencyId: "agency-uuid-1",
       });
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining("Auto-reply sent to user@example.com"),
-      );
+      // Find the line for our message.
+      const sentLine = stdoutLines
+        .map((raw) => {
+          try {
+            return JSON.parse(raw.trim()) as Record<string, unknown>;
+          } catch {
+            return null;
+          }
+        })
+        .find((line) => line?.msg === "Auto-reply sent");
 
-      consoleSpy.mockRestore();
+      expect(sentLine).toBeDefined();
+      expect(sentLine?.agencyId).toBe("agency-uuid-1");
+      expect(sentLine?.conversationId).toBe("conv-uuid-12");
+      // tenantEmail is PII — must not appear in the structured log line.
+      expect(JSON.stringify(sentLine)).not.toContain("user@example.com");
+
+      stdoutSpy.mockRestore();
     });
   });
 });
