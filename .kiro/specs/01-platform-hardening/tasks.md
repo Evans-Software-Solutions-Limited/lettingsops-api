@@ -16,10 +16,10 @@ Work top to bottom. Each task is small enough to land in a single PR. Cross-cutt
 
 ## Block C — Logging & request context
 
-- [ ] **C1.** Add `packages/api-utils/src/logger/logger.ts` and `scrub.ts` per design §3. Unit tests for scrub (keys redacted, nested objects, arrays, missing fields).
-- [ ] **C2.** Add `requestContext.ts` (AsyncLocalStorage-based) and a small Elysia plugin that seeds it from `x-amzn-RequestId`.
-- [ ] **C3.** Replace `console.log` / `console.error` calls in `microservices/core/src` with `logger.info` / `logger.error`. Repo-wide grep and replace, no behaviour change.
-- [ ] **C4.** Add the `agencyId` field to every log statement in the email processor Lambda and the ElevenLabs webhook handler.
+- [x] **C1.** Add `packages/api-utils/src/logger/logger.ts` and `scrub.ts` per design §3. Unit tests for scrub (keys redacted, nested objects, arrays, missing fields).
+- [x] **C2.** Add `requestContext.ts` (AsyncLocalStorage-based) and a small Elysia plugin that seeds it from `x-amzn-RequestId`. _Uses `AsyncLocalStorage.enterWith` inside Elysia's `onRequest` hook so the scope flows through awaited handler continuations. Wired into `microservices/core/src/api.ts` as the first plugin._
+- [x] **C3.** Replace `console.log` / `console.error` calls in `microservices/core/src` with `logger.info` / `logger.error`. Repo-wide grep and replace, no behaviour change.
+- [x] **C4.** Add the `agencyId` field to every log statement in the email processor Lambda and the ElevenLabs webhook handler. _Email processor logs carry `agencyId` once the agency is resolved (pre-resolution failures log without it, by design). ElevenLabs payloads carry `agentId` not `agencyId`; logs use `callId` + `agentId` as primary correlation, with `agencyId` enrichment deferred to Block E (tenant scoping) where the agentId → agencyId mapping lands._
 
 ## Block D — Auth (introduce, off by default)
 
