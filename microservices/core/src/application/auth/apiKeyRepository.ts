@@ -62,10 +62,16 @@ export class ApiKeyRepository {
   }
 
   async touch(id: string): Promise<void> {
+    // Mirror the `revoke()` guard. The auth flow is
+    // `findActive(hash)` → validate → `touch(id)` with no row lock between
+    // calls. A revoke that races in that window would otherwise leave
+    // `last_used_at > revoked_at` — i.e. the audit log claiming the key was
+    // used after it was killed. The WHERE filter no-ops the UPDATE at the
+    // DB when the row is already revoked.
     await this.db
       .update(apiKeys)
       .set({ lastUsedAt: new Date() })
-      .where(eq(apiKeys.id, id));
+      .where(and(eq(apiKeys.id, id), isNull(apiKeys.revokedAt)));
   }
 
   async listForAgency(agencyId: string): Promise<ApiKeyRow[]> {
