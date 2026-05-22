@@ -172,6 +172,23 @@ export const estateAgents = pgTable("estate_agents", {
     .defaultNow(),
 });
 
+// ─── API Keys ─────────────────────────────────────────────────────────────────
+
+export const apiKeys = pgTable("api_keys", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  agencyId: uuid("agency_id")
+    .notNull()
+    .references(() => agencies.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  keyHash: text("key_hash").notNull().unique(),
+  prefix: text("prefix").notNull(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 // ─── Agency Required Fields ───────────────────────────────────────────────────
 
 export const agencyRequiredFields = pgTable(
@@ -299,6 +316,8 @@ export type AgencyRow = typeof agencies.$inferSelect;
 export type NewAgencyRow = typeof agencies.$inferInsert;
 export type EstateAgentRow = typeof estateAgents.$inferSelect;
 export type NewEstateAgentRow = typeof estateAgents.$inferInsert;
+export type ApiKeyRow = typeof apiKeys.$inferSelect;
+export type NewApiKeyRow = typeof apiKeys.$inferInsert;
 export type AgencyRequiredFieldRow = typeof agencyRequiredFields.$inferSelect;
 export type NewAgencyRequiredFieldRow =
   typeof agencyRequiredFields.$inferInsert;

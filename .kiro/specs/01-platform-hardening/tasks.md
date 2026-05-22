@@ -10,9 +10,9 @@ Work top to bottom. Each task is small enough to land in a single PR. Cross-cutt
 
 ## Block B — Database
 
-- [ ] **B1.** Add the `api_keys` table to `packages/db/src/schema.ts` per design §1.2.
-- [ ] **B2.** Generate migration via `drizzle-kit generate` and review the SQL. Add the migration to `packages/db/migrations/` and update the snapshot.
-- [ ] **B3.** Add `ApiKeyRepository` at `microservices/core/src/application/auth/apiKeyRepository.ts` with methods `create`, `findActive(keyHash)`, `revoke(id)`, `touch(id)`, `listForAgency(agencyId)`. Tests cover each, including the "revoked key cannot be found by findActive" case.
+- [x] **B1.** Add the `api_keys` table to `packages/db/src/schema.ts` per design §1.2.
+- [x] **B2.** Generate migration via `drizzle-kit generate` and review the SQL. Add the migration to `packages/db/migrations/` and update the snapshot. _Migration `0001_api_keys.sql` + snapshot landed; idempotency relies on drizzle's journal tracking each migration once._
+- [x] **B3.** Add `ApiKeyRepository` at `microservices/core/src/application/auth/apiKeyRepository.ts` with methods `create`, `findActive(keyHash)`, `revoke(id)`, `touch(id)`, `listForAgency(agencyId)`. Tests cover each, including the "revoked key cannot be found by findActive" case.
 
 ## Block C — Logging & request context
 
