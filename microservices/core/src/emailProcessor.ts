@@ -137,18 +137,15 @@ Respond with valid JSON only, no markdown.`;
       messageId: key,
     });
 
-    // 7. Send auto-reply to tenant
+    // 7. Send auto-reply to tenant. `autoReplyService.sendReply` itself
+    //    emits `logger.info("Auto-reply sent", { agencyId, conversationId })`
+    //    on success — no processor-level mirror call here, that would
+    //    double-count the milestone in CloudWatch grouped-by-msg queries.
     await autoReplyService.sendReply({
       result,
       tenantEmail,
       agencyId: agency.id,
       propertyRef: extractedFields.property_ref,
-    });
-
-    logger.info("Auto-reply sent", {
-      agencyId: agency.id,
-      conversationId: result.conversationId,
-      messageId: key,
     });
   } catch (error) {
     logger.error("Error processing email", {

@@ -101,6 +101,59 @@ describe("logger", () => {
     expect(line).not.toHaveProperty("requestId"); // none set
   });
 
+  describe("reserved-field precedence", () => {
+    // Regression for Inspector Brad's lead on PR #33: the open `LogContext`
+    // shape (`[key: string]: unknown`) means a caller can pass `level` /
+    // `time` / `msg` keys, and the request context can plant the same keys
+    // via `updateRequestContext`. Both must lose to the actual emit-time
+    // values — otherwise a stray `{ level: "DEBUG" }` silently misclassifies
+    // the stream and breaks CloudWatch `level=error` queries.
+
+    it("ignores caller-supplied `level` override", () => {
+      logger.info("hi", { level: "DEBUG" } as unknown as Record<
+        string,
+        unknown
+      >);
+      expect(lastStdout().level).toBe("info");
+    });
+
+    it("ignores caller-supplied `msg` override", () => {
+      logger.info("real msg", { msg: "fake msg" } as unknown as Record<
+        string,
+        unknown
+      >);
+      expect(lastStdout().msg).toBe("real msg");
+    });
+
+    it("ignores caller-supplied `time` override", () => {
+      logger.info("hi", { time: "1999-01-01T00:00:00Z" } as unknown as Record<
+        string,
+        unknown
+      >);
+      // Time is the emit-time ISO string, not the caller's value.
+      expect(lastStdout().time).not.toBe("1999-01-01T00:00:00Z");
+      expect(new Date(lastStdout().time).getFullYear()).toBeGreaterThan(2000);
+    });
+
+    it("ignores request-context-supplied reserved-field overrides", () => {
+      // Mirror of the caller-side test, exercised via the ALS scope —
+      // because `updateRequestContext` can plant arbitrary keys at any point
+      // upstream of the actual log call.
+      runWithRequestContext(
+        { level: "DEBUG", msg: "from-scope" } as unknown as Record<
+          string,
+          unknown
+        >,
+        () => {
+          logger.info("real msg");
+        },
+      );
+      const line = lastStdout();
+      expect(line.level).toBe("info");
+      expect(line.msg).toBe("real msg");
+    });
+  });
+
   it("writes one JSON line per call, newline-terminated", () => {
     logger.info("a");
     logger.info("b");

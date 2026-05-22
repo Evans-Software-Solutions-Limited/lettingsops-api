@@ -36,11 +36,16 @@ function emit(level: LogLevel, msg: string, ctx?: LogContext): void {
     ...(ctx ?? {}),
   };
 
+  // Reserved fields go AFTER the spread so caller- and request-context-supplied
+  // keys cannot rewrite them. `LogContext` is open (`[key: string]: unknown`),
+  // and a stray `{ level: "DEBUG" }` planted via `updateRequestContext` or
+  // passed at the call site would otherwise silently misclassify the stream
+  // and break CloudWatch `level=error` queries.
   const line: LogLine = {
+    ...scrub(merged),
     level,
     time: new Date().toISOString(),
     msg,
-    ...scrub(merged),
   };
 
   // stdout for info/warn, stderr for error — matches Lambda's standard
