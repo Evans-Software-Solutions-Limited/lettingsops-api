@@ -8,7 +8,7 @@ import { AutoReplyService } from "./application/reply/autoReplyService";
 import type { ConversationTypeEnum } from "@lettingsops/db";
 import { getDb, agencies } from "@lettingsops/db";
 import { eq } from "drizzle-orm";
-import { logger } from "@lettingsops/api-utils/logger";
+import { logger, formatError } from "@lettingsops/api-utils/logger";
 
 const s3 = new S3Client({});
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -148,10 +148,12 @@ Respond with valid JSON only, no markdown.`;
       propertyRef: extractedFields.property_ref,
     });
   } catch (error) {
-    logger.error("Error processing email", {
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-    });
+    // PII safety: pass through `formatError` rather than logging
+    // `error.message` / `error.stack` directly. Real-world errors (SES
+    // MessageRejected, Postgres unique-constraint violations) embed tenant
+    // emails inside their message strings, and the key-based scrub would
+    // not catch them under generic `error` / `stack` keys.
+    logger.error("Error processing email", { ...formatError(error) });
     throw error;
   }
 };

@@ -10,3 +10,5 @@ export {
 } from "./requestContext";
 export type { RequestContext } from "./requestContext";
 export { requestContextPlugin } from "./elysiaPlugin";
+export { formatError } from "./formatError";
+export type { FormattedError } from "./formatError";
