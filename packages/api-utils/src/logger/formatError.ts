@@ -30,6 +30,43 @@ export interface FormattedError {
   errorStatusCode?: number;
 }
 
+/**
+ * Wrap a thrown error in a sanitised replacement suitable for re-throwing
+ * out of a Lambda handler.
+ *
+ * Block C ships an explicit `logger.error(...)` path with PII scrubbed, but
+ * `throw originalError` after that hands the unmodified error to the Node
+ * Lambda runtime, which auto-logs:
+ *
+ *     ERROR Invoke Error {
+ *       "errorType": "...",
+ *       "errorMessage": "...the raw PII-bearing message...",
+ *       "stack": ["...", "..."]
+ *     }
+ *
+ * to stderr. That undoes the scrub on every failure path whose error
+ * message embeds PII (SES MessageRejected, Postgres unique-violation, …).
+ *
+ * `toSanitisedError` returns a new Error whose `name` carries the
+ * classified error name (so DLQ / retry routing still works), whose
+ * `message` is a fixed string, and whose `stack` is from this call site
+ * (no original-message bleed-through). The original error is attached via
+ * `cause`; Lambda's default error serialiser walks `name` / `message` /
+ * `stack` but NOT `cause`, so the auto-log stays PII-free while in-process
+ * debugging can still reach the original via `err.cause`.
+ */
+export function toSanitisedError(err: unknown): Error {
+  const formatted = formatError(err);
+  // Node 16.9+ accepts the `{ cause }` options bag in the Error constructor.
+  const sanitised = new Error(`Operation failed: ${formatted.errorName}`, {
+    cause: err,
+  });
+  // Preserve the classified name so DLQ / metric-filter rules that key off
+  // `errorType` continue to fire on the original failure mode.
+  sanitised.name = formatted.errorName;
+  return sanitised;
+}
+
 export function formatError(err: unknown): FormattedError {
   if (err instanceof Error) {
     // AWS SDK errors carry `name`, `$metadata.httpStatusCode`, and

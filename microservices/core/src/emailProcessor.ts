@@ -8,7 +8,11 @@ import { AutoReplyService } from "./application/reply/autoReplyService";
 import type { ConversationTypeEnum } from "@lettingsops/db";
 import { getDb, agencies } from "@lettingsops/db";
 import { eq } from "drizzle-orm";
-import { logger, formatError } from "@lettingsops/api-utils/logger";
+import {
+  logger,
+  formatError,
+  toSanitisedError,
+} from "@lettingsops/api-utils/logger";
 
 const s3 = new S3Client({});
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -61,8 +65,13 @@ export const handler = async (event: S3Event): Promise<void> => {
       .then((rows: (typeof agencies.$inferSelect)[]) => rows[0]);
 
     if (!agency) {
+      // Use `email` (a PII allowlist key) so the scrub redacts the
+      // agency's inbound address. Real-world inbound addresses sometimes
+      // embed a person's name in the local-part (`john.smith@agency.com`),
+      // so under GDPR they're PII. Debugging which recipient missed a
+      // match falls back to the S3 object at `messageId` (= the S3 key).
       logger.warn("No agency found for recipient", {
-        recipientEmail,
+        email: recipientEmail,
         messageId: key,
       });
       return;
@@ -148,12 +157,19 @@ Respond with valid JSON only, no markdown.`;
       propertyRef: extractedFields.property_ref,
     });
   } catch (error) {
-    // PII safety: pass through `formatError` rather than logging
-    // `error.message` / `error.stack` directly. Real-world errors (SES
-    // MessageRejected, Postgres unique-constraint violations) embed tenant
-    // emails inside their message strings, and the key-based scrub would
-    // not catch them under generic `error` / `stack` keys.
+    // PII safety, two-step:
+    //
+    // 1. The explicit `logger.error` line goes through `formatError`, which
+    //    drops `error.message` / `error.stack` (the strings that embed
+    //    tenant PII for SES MessageRejected / Postgres unique-violation).
+    //
+    // 2. The rethrow goes through `toSanitisedError`. If we threw the
+    //    original, Lambda's runtime auto-log would serialise `name`,
+    //    `message`, and `stack` to stderr — undoing step 1 on every
+    //    PII-bearing failure. The sanitised wrapper has a fixed message
+    //    and a stack from this call site; the original is attached via
+    //    `cause`, which Lambda's runtime does not walk.
     logger.error("Error processing email", { ...formatError(error) });
-    throw error;
+    throw toSanitisedError(error);
   }
 };
