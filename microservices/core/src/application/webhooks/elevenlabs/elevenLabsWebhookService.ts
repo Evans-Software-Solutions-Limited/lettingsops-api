@@ -1,6 +1,7 @@
 import Elysia from "elysia";
 import { getDb } from "@lettingsops/db";
 import { LeadRepository } from "../../repositories/leadRepository";
+import { ANY_AGENCY } from "../../repositories/tenantScopedRepository";
 import { logger } from "@lettingsops/api-utils/logger";
 
 interface ElevenLabsPayload {
@@ -40,7 +41,12 @@ export const ElevenLabsWebhookService = new Elysia({
     });
 
     const db = getDb();
-    const leadRepo = new LeadRepository(db);
+    // ElevenLabs payloads carry `agentId`, not `agencyId`. The
+    // agentId → agencyId mapping lands in a later block (tracked in
+    // C4's note in tasks.md). Until then this webhook is tenant-blind
+    // and falls through the ANY_AGENCY sentinel.
+    // TODO(F1/agent-mapping): resolve agencyId from agentId.
+    const leadRepo = new LeadRepository(db, ANY_AGENCY);
 
     const extractedFields = payload.extractedFields || {};
     const email =

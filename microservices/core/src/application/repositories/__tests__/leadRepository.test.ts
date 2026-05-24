@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { LeadRepository } from "../leadRepository";
+import { ANY_AGENCY } from "../tenantScopedRepository";
 import type { Db } from "@lettingsops/db";
 
 // ─── Mock DB helper ───────────────────────────────────────────────────────────
@@ -72,7 +73,12 @@ describe("LeadRepository", () => {
       select: vi.fn(() => mockChain([mockLeadRow])),
       update: vi.fn(() => mockChain([])),
     } as unknown as Partial<Db>;
-    repo = new LeadRepository(mockDb as Db);
+    // Tests exercise the unscoped behaviour. The tenant-isolation
+    // matrix in `tenantIsolation.test.ts` covers the agency-scoped
+    // semantics. Construct with the ANY_AGENCY sentinel here so reads
+    // skip the filter (matches pre-Block-E behaviour these tests were
+    // written against).
+    repo = new LeadRepository(mockDb as Db, ANY_AGENCY);
   });
 
   // ── create ──────────────────────────────────────────────────────────────────

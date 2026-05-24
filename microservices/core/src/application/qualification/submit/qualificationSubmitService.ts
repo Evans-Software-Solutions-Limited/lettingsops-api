@@ -1,6 +1,7 @@
 import Elysia from "elysia";
 import { LeadRepository } from "../../repositories/leadRepository";
 import { QualificationRepository } from "../../repositories/qualificationRepository";
+import { ANY_AGENCY } from "../../repositories/tenantScopedRepository";
 
 export type QualificationAnswers = {
   moveInDate: string;
@@ -70,7 +71,8 @@ export const QualificationSubmitService = new Elysia({
     score: number;
     category: ScoreCategory;
   }> {
-    const leadRepo = new LeadRepository();
+    // TODO(F1): pass `ctx.auth.agencyId` once `.use(auth)` is mounted.
+    const leadRepo = new LeadRepository(undefined, ANY_AGENCY);
     const qualRepo = new QualificationRepository();
 
     const lead = await leadRepo.findById(leadId);

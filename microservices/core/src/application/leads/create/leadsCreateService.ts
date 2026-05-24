@@ -1,5 +1,6 @@
 import Elysia from "elysia";
 import { LeadRepository } from "../../repositories/leadRepository";
+import { ANY_AGENCY } from "../../repositories/tenantScopedRepository";
 
 export const LeadsCreateService = new Elysia({
   name: "LeadsCreateService",
@@ -12,7 +13,10 @@ export const LeadsCreateService = new Elysia({
     message?: string;
     source?: "email" | "phone" | "portal" | "manual";
   }): Promise<{ id: string; status: string; createdAt: string }> {
-    const repo = new LeadRepository();
+    // TODO(F1): pass `ctx.auth.agencyId` once `.use(auth)` is mounted.
+    // Writes via ANY_AGENCY fall back to the LEGACY_AGENCY_ID column
+    // DEFAULT until then.
+    const repo = new LeadRepository(undefined, ANY_AGENCY);
     return repo.create({
       ...input,
       status: "NEW",

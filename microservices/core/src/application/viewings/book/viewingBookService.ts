@@ -1,6 +1,7 @@
 import Elysia from "elysia";
 import { LeadRepository } from "../../repositories/leadRepository";
 import { ViewingRepository } from "../../repositories/viewingRepository";
+import { ANY_AGENCY } from "../../repositories/tenantScopedRepository";
 
 export type BookViewingInput = {
   leadId: string;
@@ -16,7 +17,8 @@ export const ViewingBookService = new Elysia({
     confirmedAt: string;
     calendarEventId?: string;
   }> {
-    const leadRepo = new LeadRepository();
+    // TODO(F1): pass `ctx.auth.agencyId` once `.use(auth)` is mounted.
+    const leadRepo = new LeadRepository(undefined, ANY_AGENCY);
     const viewingRepo = new ViewingRepository();
 
     const lead = await leadRepo.findById(input.leadId);
