@@ -43,14 +43,23 @@ import { HttpError } from "./httpError";
 
 export type Principal = "user" | "service" | "anonymous";
 
+/**
+ * Resolved auth context attached to every authenticated request via
+ * Elysia's `.derive`. All fields are `readonly` because Lambda re-uses
+ * the same module-level state between invocations on a warm container —
+ * a mutation by any one handler would leak into the next request through
+ * the same container. The type-level guard is paired with a fresh
+ * literal returned at each call site (no shared singletons) so the
+ * runtime can't be poisoned even via `as any` escape hatches.
+ */
 export interface AuthContext {
-  principal: Principal;
+  readonly principal: Principal;
   /** Resolved agency ID. Null for `anonymous` (soft mode, no creds). */
-  agencyId: string | null;
+  readonly agencyId: string | null;
   /** Set only for JWT principals. Null for service / anonymous. */
-  estateAgentId: string | null;
+  readonly estateAgentId: string | null;
   /** Set only for JWT principals. Null for service / anonymous. */
-  role: "admin" | "agent" | null;
+  readonly role: "admin" | "agent" | null;
 }
 
 function sha256Hex(input: string): string {
@@ -64,12 +73,22 @@ function isEnforced(): boolean {
   return process.env.AUTH_ENFORCED === "true";
 }
 
-const ANONYMOUS: AuthContext = {
-  principal: "anonymous",
-  agencyId: null,
-  estateAgentId: null,
-  role: null,
-};
+/**
+ * Construct a fresh anonymous auth context. We deliberately do NOT cache
+ * a shared singleton — Lambda warm containers re-use module-level state,
+ * and a stray mutation by any handler would leak the previous request's
+ * fields into every subsequent anonymous request on the same container.
+ * Combined with the `readonly` typing on `AuthContext`, this rules out
+ * both compile-time and runtime poisoning.
+ */
+function anonymousContext(): AuthContext {
+  return {
+    principal: "anonymous",
+    agencyId: null,
+    estateAgentId: null,
+    role: null,
+  };
+}
 
 /**
  * Resolve credentials from headers. Returns the auth context to attach to
@@ -158,7 +177,7 @@ export async function resolveAuth(
   if (enforced) {
     throw new HttpError(401, "Authentication required");
   }
-  return ANONYMOUS;
+  return anonymousContext();
 }
 
 /**

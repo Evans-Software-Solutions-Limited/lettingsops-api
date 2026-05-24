@@ -251,6 +251,25 @@ describe("resolveAuth", () => {
         resolveAuth(makeHeaders(), { enforced: true }),
       ).rejects.toMatchObject({ status: 401 });
     });
+
+    it("returns a fresh anonymous context per call — no shared singleton", async () => {
+      // Regression for Inspector Brad's lead on PR #34: Lambda warm
+      // containers re-use module-level state, so a shared `ANONYMOUS`
+      // singleton would leak the previous handler's mutation into every
+      // subsequent anonymous request on the same container. Even though
+      // `AuthContext` is typed as readonly, future refactors or `as any`
+      // escapes could mutate — so the runtime guarantee (fresh literal
+      // per call, distinct references) is the belt to that brace.
+      const a = await resolveAuth(makeHeaders());
+      const b = await resolveAuth(makeHeaders());
+      expect(a).not.toBe(b);
+      expect(a).toEqual(b); // structurally equal, but separate objects
+      // Mutating one via the type-system escape hatch must not affect the
+      // other. This would have been a real foot-gun once a handler did
+      // `if (!auth.agencyId) auth.agencyId = "..."` for dev defaulting.
+      (a as { agencyId: string | null }).agencyId = "leaked";
+      expect(b.agencyId).toBeNull();
+    });
   });
 
   // ── Cross-paths ────────────────────────────────────────────────────────────
