@@ -10,6 +10,19 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
+/**
+ * Transitional default for `agency_id` on the five tenant-owned tables
+ * that got the column in Block E.0 (leads, qualifications, viewings,
+ * communication_logs, audit_logs). Block E proper removes the DEFAULT
+ * once every caller passes an explicit agencyId from the resolved auth
+ * context — grep for `LEGACY_AGENCY_ID` to find every removal site.
+ *
+ * The same UUID is seeded as a row in `agencies` during the 0002
+ * migration so the FK is satisfied. Operators can rename / delete it
+ * after the cleanup.
+ */
+export const LEGACY_AGENCY_ID = "00000000-0000-0000-0000-000000000001";
+
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
 export const leadStatusEnum = pgEnum("lead_status", [
@@ -54,6 +67,15 @@ export const conversationTypeEnum = pgEnum("conversation_type", [
 
 export const leads = pgTable("leads", {
   id: uuid("id").primaryKey().defaultRandom(),
+  // Tenant scoping. Added in Block E.0; backfilled to the legacy agency.
+  // The DEFAULT is a transitional safety net so writes that haven't yet
+  // been migrated to constructor-injected agencyId still land somewhere
+  // valid. Removed in Block E proper once every caller passes an
+  // explicit agencyId — track via `LEGACY_AGENCY_ID` greps.
+  agencyId: uuid("agency_id")
+    .notNull()
+    .default(LEGACY_AGENCY_ID)
+    .references((): AnyPgColumn => agencies.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   email: text("email").notNull(),
   phone: text("phone"),
@@ -77,6 +99,11 @@ export const leads = pgTable("leads", {
 
 export const qualifications = pgTable("qualifications", {
   id: uuid("id").primaryKey().defaultRandom(),
+  // Block E.0 — see note on `leads.agencyId`.
+  agencyId: uuid("agency_id")
+    .notNull()
+    .default(LEGACY_AGENCY_ID)
+    .references((): AnyPgColumn => agencies.id, { onDelete: "cascade" }),
   leadId: uuid("lead_id")
     .notNull()
     .references(() => leads.id, { onDelete: "cascade" }),
@@ -92,6 +119,11 @@ export const qualifications = pgTable("qualifications", {
 
 export const viewings = pgTable("viewings", {
   id: uuid("id").primaryKey().defaultRandom(),
+  // Block E.0 — see note on `leads.agencyId`.
+  agencyId: uuid("agency_id")
+    .notNull()
+    .default(LEGACY_AGENCY_ID)
+    .references((): AnyPgColumn => agencies.id, { onDelete: "cascade" }),
   leadId: uuid("lead_id")
     .notNull()
     .references(() => leads.id, { onDelete: "cascade" }),
@@ -117,6 +149,11 @@ export const viewings = pgTable("viewings", {
 
 export const communicationLogs = pgTable("communication_logs", {
   id: uuid("id").primaryKey().defaultRandom(),
+  // Block E.0 — see note on `leads.agencyId`.
+  agencyId: uuid("agency_id")
+    .notNull()
+    .default(LEGACY_AGENCY_ID)
+    .references((): AnyPgColumn => agencies.id, { onDelete: "cascade" }),
   leadId: uuid("lead_id")
     .notNull()
     .references(() => leads.id, { onDelete: "cascade" }),
@@ -134,6 +171,13 @@ export const communicationLogs = pgTable("communication_logs", {
 
 export const auditLogs = pgTable("audit_logs", {
   id: uuid("id").primaryKey().defaultRandom(),
+  // Block E.0 — see note on `leads.agencyId`. Audit logs are tenant-owned
+  // because the same `entityType + entityId` could collide across agencies
+  // (e.g. lead UUIDs are random but action histories must stay scoped).
+  agencyId: uuid("agency_id")
+    .notNull()
+    .default(LEGACY_AGENCY_ID)
+    .references((): AnyPgColumn => agencies.id, { onDelete: "cascade" }),
   entityType: text("entity_type").notNull(), // "lead" | "qualification" | "viewing"
   entityId: uuid("entity_id").notNull(),
   action: text("action").notNull(), // "created" | "status_changed" | "scored" | "cancelled"
