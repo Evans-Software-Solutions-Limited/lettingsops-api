@@ -4,7 +4,8 @@
   "type": "module",
   "exports": {
     "./env": "./src/env/index.ts",
-    "./jwt": "./src/jwt/index.ts"
+    "./jwt": "./src/jwt/index.ts",
+    "./logger": "./src/logger/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

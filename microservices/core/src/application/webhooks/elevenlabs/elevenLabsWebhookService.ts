@@ -1,6 +1,7 @@
 import Elysia from "elysia";
 import { getDb } from "@lettingsops/db";
 import { LeadRepository } from "../../repositories/leadRepository";
+import { logger } from "@lettingsops/api-utils/logger";
 
 interface ElevenLabsPayload {
   callId: string;
@@ -25,6 +26,19 @@ export const ElevenLabsWebhookService = new Elysia({
   name: "ElevenLabsWebhookService",
 }).decorate("elevenLabsWebhookService", {
   async handleWebhook(payload: ElevenLabsPayload) {
+    // Note on agencyId: ElevenLabs payloads carry `agentId`, not `agencyId`.
+    // The agentId → agencyId mapping lands with the tenant-scoping refactor
+    // in Block E of spec-01-platform-hardening. Until then, logs here carry
+    // `callId` + `agentId` as the primary correlation fields; downstream
+    // `agencyId` enrichment will be added once the agent-to-agency lookup
+    // exists. See `.kiro/specs/01-platform-hardening/tasks.md` E1–E4.
+    logger.info("ElevenLabs webhook received", {
+      callId: payload.callId,
+      agentId: payload.agentId,
+      intent: payload.intent,
+      transcriptTurns: payload.transcript?.length ?? 0,
+    });
+
     const db = getDb();
     const leadRepo = new LeadRepository(db);
 
@@ -35,6 +49,7 @@ export const ElevenLabsWebhookService = new Elysia({
 
     // Find or create lead
     let lead = await leadRepo.findByEmail(email);
+    let action: "matched" | "created";
 
     if (!lead) {
       lead = await leadRepo.create({
@@ -53,7 +68,17 @@ export const ElevenLabsWebhookService = new Elysia({
           callDurationSeconds: payload.callDurationSeconds,
         },
       });
+      action = "created";
+    } else {
+      action = "matched";
     }
+
+    logger.info("ElevenLabs lead resolved", {
+      callId: payload.callId,
+      agentId: payload.agentId,
+      leadId: lead.id,
+      action,
+    });
 
     // Store transcript as communication log
     if (payload.transcript && payload.transcript.length > 0) {

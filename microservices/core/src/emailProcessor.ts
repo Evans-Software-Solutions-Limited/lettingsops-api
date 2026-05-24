@@ -8,18 +8,25 @@ import { AutoReplyService } from "./application/reply/autoReplyService";
 import type { ConversationTypeEnum } from "@lettingsops/db";
 import { getDb, agencies } from "@lettingsops/db";
 import { eq } from "drizzle-orm";
+import {
+  logger,
+  formatError,
+  toSanitisedError,
+} from "@lettingsops/api-utils/logger";
 
 const s3 = new S3Client({});
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const autoReplyService = new AutoReplyService();
 
 export const handler = async (event: S3Event): Promise<void> => {
-  console.log("Email processor triggered", JSON.stringify(event));
+  logger.info("Email processor triggered", {
+    recordCount: event.Records?.length ?? 0,
+  });
 
   try {
     const record = event.Records[0];
     if (!record) {
-      console.error("No S3 records in event");
+      logger.error("No S3 records in event");
       return;
     }
 
@@ -44,7 +51,7 @@ export const handler = async (event: S3Event): Promise<void> => {
     const subject = parsed.subject ?? "";
 
     if (!tenantEmail) {
-      console.error("Could not determine sender email");
+      logger.error("Could not determine sender email", { messageId: key });
       return;
     }
 
@@ -58,7 +65,15 @@ export const handler = async (event: S3Event): Promise<void> => {
       .then((rows: (typeof agencies.$inferSelect)[]) => rows[0]);
 
     if (!agency) {
-      console.warn(`No agency found for recipient: ${recipientEmail}`);
+      // Use `email` (a PII allowlist key) so the scrub redacts the
+      // agency's inbound address. Real-world inbound addresses sometimes
+      // embed a person's name in the local-part (`john.smith@agency.com`),
+      // so under GDPR they're PII. Debugging which recipient missed a
+      // match falls back to the S3 object at `messageId` (= the S3 key).
+      logger.warn("No agency found for recipient", {
+        email: recipientEmail,
+        messageId: key,
+      });
       return;
     }
 
@@ -89,7 +104,10 @@ Respond with valid JSON only, no markdown.`;
       conversationType = llmParsed.type ?? "OTHER";
       extractedFields = llmParsed.fields ?? {};
     } catch {
-      console.warn("Failed to parse LLM response, defaulting to OTHER");
+      logger.warn("Failed to parse LLM response, defaulting to OTHER", {
+        agencyId: agency.id,
+        messageId: key,
+      });
     }
 
     // 5. Create or merge lead from LLM-extracted data
@@ -103,11 +121,12 @@ Respond with valid JSON only, no markdown.`;
     });
 
     const leadId = ingestionResult.leadId;
-    console.log(
-      `Lead ${ingestionResult.action}:`,
+    logger.info("Lead processed", {
+      agencyId: agency.id,
       leadId,
-      JSON.stringify(ingestionResult),
-    );
+      action: ingestionResult.action,
+      messageId: key,
+    });
 
     // 6. Process conversation state with leadId
     const result = await processConversationState({
@@ -119,19 +138,38 @@ Respond with valid JSON only, no markdown.`;
       leadId,
     });
 
-    console.log("Conversation state processed", JSON.stringify(result));
+    logger.info("Conversation state processed", {
+      agencyId: agency.id,
+      conversationId: result.conversationId,
+      conversationType: result.conversationType,
+      isComplete: result.isComplete,
+      messageId: key,
+    });
 
-    // 7. Send auto-reply to tenant
+    // 7. Send auto-reply to tenant. `autoReplyService.sendReply` itself
+    //    emits `logger.info("Auto-reply sent", { agencyId, conversationId })`
+    //    on success — no processor-level mirror call here, that would
+    //    double-count the milestone in CloudWatch grouped-by-msg queries.
     await autoReplyService.sendReply({
       result,
       tenantEmail,
       agencyId: agency.id,
       propertyRef: extractedFields.property_ref,
     });
-
-    console.log("Auto-reply sent for conversation", result.conversationId);
   } catch (error) {
-    console.error("Error processing email", error);
-    throw error;
+    // PII safety, two-step:
+    //
+    // 1. The explicit `logger.error` line goes through `formatError`, which
+    //    drops `error.message` / `error.stack` (the strings that embed
+    //    tenant PII for SES MessageRejected / Postgres unique-violation).
+    //
+    // 2. The rethrow goes through `toSanitisedError`. If we threw the
+    //    original, Lambda's runtime auto-log would serialise `name`,
+    //    `message`, and `stack` to stderr — undoing step 1 on every
+    //    PII-bearing failure. The sanitised wrapper has a fixed message
+    //    and a stack from this call site; the original is attached via
+    //    `cause`, which Lambda's runtime does not walk.
+    logger.error("Error processing email", { ...formatError(error) });
+    throw toSanitisedError(error);
   }
 };

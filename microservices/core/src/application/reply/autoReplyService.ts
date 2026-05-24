@@ -10,6 +10,7 @@
 import { SendEmailCommand, SESClient } from "@aws-sdk/client-ses";
 import type { ConversationStateResult } from "../conversation/conversationStateService";
 import { AgencyRepository } from "../repositories/agencyRepository";
+import { logger } from "@lettingsops/api-utils/logger";
 
 /**
  * Friendly mapping of field keys to human-readable questions
@@ -153,9 +154,12 @@ export class AutoReplyService {
       },
     });
 
-    console.log(
-      `Auto-reply sent to ${tenantEmail} for conversation ${result.conversationId}`,
-    );
+    // Drop tenantEmail from the structured log: it's PII and the
+    // conversationId + agencyId pair is enough to correlate downstream.
+    logger.info("Auto-reply sent", {
+      agencyId,
+      conversationId: result.conversationId,
+    });
   }
 
   private buildQualificationEmailHtml(params: {

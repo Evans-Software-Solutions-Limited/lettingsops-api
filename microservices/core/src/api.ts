@@ -2,6 +2,7 @@ import Elysia from "elysia";
 import { Hono } from "hono";
 import { handle } from "hono/aws-lambda";
 import openapi from "@elysiajs/openapi";
+import { requestContextPlugin } from "@lettingsops/api-utils/logger";
 
 import { leadsCreateHandler } from "./application/leads/create/leadsCreateHandler";
 import { leadsGetHandler } from "./application/leads/get/leadsGetHandler";
@@ -14,6 +15,9 @@ import { viewingBookHandler } from "./application/viewings/book/viewingBookHandl
 import { elevenLabsWebhookHandler } from "./application/webhooks/elevenlabs/elevenLabsWebhookHandler";
 
 const app = new Elysia()
+  // Seed AsyncLocalStorage request context (requestId) before anything else
+  // so all logger.* calls in the rest of the pipeline pick it up.
+  .use(requestContextPlugin)
   .use(openapi())
   // Lead management
   .use(leadsCreateHandler)
