@@ -19,7 +19,7 @@ export const ViewingBookService = new Elysia({
   }> {
     // TODO(F1): pass `ctx.auth.agencyId` once `.use(auth)` is mounted.
     const leadRepo = new LeadRepository(undefined, ANY_AGENCY);
-    const viewingRepo = new ViewingRepository();
+    const viewingRepo = new ViewingRepository(undefined, ANY_AGENCY);
 
     const lead = await leadRepo.findById(input.leadId);
     if (!lead) throw new Error(`Lead not found: ${input.leadId}`);

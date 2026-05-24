@@ -4,6 +4,7 @@ import {
   processEmail,
   type EmailPayload,
 } from "../emailIngestionService";
+import { ANY_AGENCY } from "../../../repositories/tenantScopedRepository";
 
 const mockLead = {
   id: "lead-existing-1",
@@ -50,7 +51,7 @@ describe("EmailIngestionService", () => {
         receivedAt: "2024-06-01T10:00:00.000Z",
       };
 
-      const result = await processEmail(payload);
+      const result = await processEmail(payload, ANY_AGENCY);
 
       expect(result).toHaveProperty("leadId");
       expect(result).toHaveProperty("action");
@@ -60,13 +61,16 @@ describe("EmailIngestionService", () => {
     it("returns IGNORED when findByMessageId returns existing lead", async () => {
       mockLeadRepo.findByMessageId.mockResolvedValue(mockLead);
 
-      const result = await processEmail({
-        messageId: "msg-duplicate",
-        from: "any@example.com",
-        subject: "Re: Enquiry",
-        body: "Body",
-        receivedAt: "2024-06-01T10:00:00.000Z",
-      });
+      const result = await processEmail(
+        {
+          messageId: "msg-duplicate",
+          from: "any@example.com",
+          subject: "Re: Enquiry",
+          body: "Body",
+          receivedAt: "2024-06-01T10:00:00.000Z",
+        },
+        ANY_AGENCY,
+      );
 
       expect(result.action).toBe("IGNORED");
       expect(result.leadId).toBe(mockLead.id);
@@ -87,7 +91,7 @@ describe("EmailIngestionService", () => {
         receivedAt: "2024-06-01T10:00:00.000Z",
       };
 
-      const result = await processEmail(payload);
+      const result = await processEmail(payload, ANY_AGENCY);
 
       expect(result.action).toBe("MERGED");
       expect(result.leadId).toBe(mockLead.id);
@@ -109,14 +113,17 @@ describe("EmailIngestionService", () => {
         email: "new@example.com",
       });
 
-      const result = await processEmail({
-        messageId: "msg-new",
-        from: "new@example.com",
-        fromName: "New User",
-        subject: "Enquiry",
-        body: "Body",
-        receivedAt: "2024-06-01T10:00:00.000Z",
-      });
+      const result = await processEmail(
+        {
+          messageId: "msg-new",
+          from: "new@example.com",
+          fromName: "New User",
+          subject: "Enquiry",
+          body: "Body",
+          receivedAt: "2024-06-01T10:00:00.000Z",
+        },
+        ANY_AGENCY,
+      );
 
       expect(result.action).toBe("CREATED");
       expect(result.leadId).toBe("lead-new-1");
@@ -142,7 +149,7 @@ describe("EmailIngestionService", () => {
         receivedAt: "2024-06-01T10:00:00.000Z",
       };
 
-      const result = await processEmail(payload);
+      const result = await processEmail(payload, ANY_AGENCY);
 
       expect(result.action).toBe("CREATED");
       expect(mockLeadRepo.create).toHaveBeenCalledWith(
@@ -172,7 +179,7 @@ describe("EmailIngestionService", () => {
         receivedAt: "2024-06-01T10:00:00.000Z",
       };
 
-      const result = await processEmail(payload);
+      const result = await processEmail(payload, ANY_AGENCY);
 
       expect(result.action).toBe("CREATED");
       expect(mockLeadRepo.create).toHaveBeenCalledWith(
@@ -192,14 +199,17 @@ describe("EmailIngestionService", () => {
         email: "sender@example.com",
       });
 
-      const result = await processEmail({
-        messageId: "msg-empty-name",
-        from: "sender@example.com",
-        fromName: "",
-        subject: "Enquiry",
-        body: "Body",
-        receivedAt: "2024-06-01T10:00:00.000Z",
-      });
+      const result = await processEmail(
+        {
+          messageId: "msg-empty-name",
+          from: "sender@example.com",
+          fromName: "",
+          subject: "Enquiry",
+          body: "Body",
+          receivedAt: "2024-06-01T10:00:00.000Z",
+        },
+        ANY_AGENCY,
+      );
 
       expect(result.action).toBe("CREATED");
       expect(mockLeadRepo.create).toHaveBeenCalledWith(
@@ -220,14 +230,17 @@ describe("EmailIngestionService", () => {
         email: "user@example.com",
       });
 
-      const result = await processEmail({
-        messageId: "msg-ws-name",
-        from: "user@example.com",
-        fromName: "   \t  ",
-        subject: "Enquiry",
-        body: "Body",
-        receivedAt: "2024-06-01T10:00:00.000Z",
-      });
+      const result = await processEmail(
+        {
+          messageId: "msg-ws-name",
+          from: "user@example.com",
+          fromName: "   \t  ",
+          subject: "Enquiry",
+          body: "Body",
+          receivedAt: "2024-06-01T10:00:00.000Z",
+        },
+        ANY_AGENCY,
+      );
 
       expect(result.action).toBe("CREATED");
       expect(mockLeadRepo.create).toHaveBeenCalledWith(

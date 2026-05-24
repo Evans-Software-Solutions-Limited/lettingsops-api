@@ -2,9 +2,18 @@
  * ViewingRepository
  *
  * Data access for Viewing records — backed by Neon via Drizzle ORM.
+ *
+ * Tenant-scoped: every instance carries an `agencyId` (real UUID or
+ * the `ANY_AGENCY` sentinel). Reads filter by it; writes inject it.
+ * See `TenantScopedRepository`.
  */
-import { eq } from "drizzle-orm";
-import { type Db, getDb, viewings } from "@lettingsops/db";
+import { and, eq } from "drizzle-orm";
+import { type Db, viewings } from "@lettingsops/db";
+import {
+  type AgencyScope,
+  TenantScopedRepository,
+  filterPredicates,
+} from "./tenantScopedRepository";
 
 export type Viewing = {
   id: string;
@@ -38,19 +47,18 @@ function rowToViewing(row: typeof viewings.$inferSelect): Viewing {
   };
 }
 
-export class ViewingRepository {
+export class ViewingRepository extends TenantScopedRepository {
   static readonly key = "ViewingRepository";
 
-  private db: Db;
-
-  constructor(db?: Db) {
-    this.db = db ?? getDb();
+  constructor(db: Db | undefined, agencyId: AgencyScope) {
+    super(db, agencyId);
   }
 
   async create(input: CreateViewingInput): Promise<Viewing> {
     const [row] = await this.db
       .insert(viewings)
       .values({
+        agencyId: this.writeAgencyId(),
         leadId: input.leadId,
         propertyRef: input.propertyRef,
         slotId: input.slotId,
@@ -67,7 +75,14 @@ export class ViewingRepository {
     const [row] = await this.db
       .select()
       .from(viewings)
-      .where(eq(viewings.id, id))
+      .where(
+        and(
+          ...filterPredicates([
+            eq(viewings.id, id),
+            this.scopeWhere(viewings.agencyId),
+          ]),
+        ),
+      )
       .limit(1);
 
     return row ? rowToViewing(row) : null;
@@ -77,7 +92,14 @@ export class ViewingRepository {
     const rows = await this.db
       .select()
       .from(viewings)
-      .where(eq(viewings.leadId, leadId))
+      .where(
+        and(
+          ...filterPredicates([
+            eq(viewings.leadId, leadId),
+            this.scopeWhere(viewings.agencyId),
+          ]),
+        ),
+      )
       .orderBy(viewings.confirmedAt);
 
     return rows.map(rowToViewing);
@@ -87,6 +109,13 @@ export class ViewingRepository {
     await this.db
       .update(viewings)
       .set({ cancelledAt: new Date() })
-      .where(eq(viewings.id, id));
+      .where(
+        and(
+          ...filterPredicates([
+            eq(viewings.id, id),
+            this.scopeWhere(viewings.agencyId),
+          ]),
+        ),
+      );
   }
 }
