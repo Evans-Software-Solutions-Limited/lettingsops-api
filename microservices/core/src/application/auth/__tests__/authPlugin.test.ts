@@ -3,6 +3,7 @@ import Elysia from "elysia";
 import { SignJWT } from "jose";
 import { auth, resolveAuth, type AuthContext } from "../authPlugin";
 import { HttpError } from "../httpError";
+import { JwtVerificationError } from "../jwtVerifier";
 import type { ApiKeyRepository } from "../apiKeyRepository";
 import {
   runWithRequestContext,
@@ -106,6 +107,31 @@ describe("resolveAuth", () => {
         });
       } catch (err) {
         expect((err as HttpError).message).toBe("Invalid authentication");
+      }
+    });
+
+    it("does NOT collapse missing_signing_key to 401 — re-raises as 500-class JwtVerificationError", async () => {
+      // Regression for Inspector Brad's lead on PR #34: a deploy that
+      // forgot `sst secret set LettingsOpsJwtSigningKey ...` is an
+      // operator mistake. If the plugin collapsed this to 401 every
+      // JWT-bearing request would look like "bad caller credentials"
+      // and Block G's missing-config alarm would never fire. The
+      // verifier's classification must survive past the plugin.
+      const token = await mintJwt();
+      try {
+        await resolveAuth(
+          makeHeaders({ authorization: `Bearer ${token}` }),
+          { signingKey: "" }, // simulate the missing-secret deploy
+        );
+        throw new Error("expected throw");
+      } catch (err) {
+        // Specifically NOT an HttpError — Elysia's default handler 500s
+        // it, which is what we want.
+        expect(err).toBeInstanceOf(JwtVerificationError);
+        expect(err).not.toBeInstanceOf(HttpError);
+        expect((err as JwtVerificationError).reason).toBe(
+          "missing_signing_key",
+        );
       }
     });
   });

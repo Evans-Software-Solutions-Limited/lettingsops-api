@@ -102,9 +102,27 @@ export async function resolveAuth(
       };
       return ctx;
     } catch (err) {
-      // Log the failure mode (the `reason` field is PII-free by
-      // construction — we built the verifier to classify into a fixed
-      // set of buckets). Never log the raw token.
+      // `missing_signing_key` is an operator misconfig, not a caller
+      // mistake. The verifier classifies it separately precisely so the
+      // HTTP layer can keep it out of the 401 bucket — otherwise every
+      // JWT-bearing request after a deploy that forgot to set the secret
+      // would look identical to "lots of bad caller credentials", and
+      // Block G's missing-config alarm (when it lands) would never fire.
+      // Log at error level and re-raise so Elysia's default handler
+      // surfaces it as 500.
+      if (
+        err instanceof JwtVerificationError &&
+        err.reason === "missing_signing_key"
+      ) {
+        logger.error("JWT signing key not configured", {
+          reason: err.reason,
+        });
+        throw err;
+      }
+
+      // Everything else is a caller mistake. Log the classification
+      // bucket — `reason` is PII-free by construction — and surface a
+      // generic 401. Never log the raw token.
       const reason =
         err instanceof JwtVerificationError ? err.reason : "unknown";
       logger.warn("JWT verification failed", {
