@@ -15,6 +15,13 @@
       "when": 1779281491743,
       "tag": "0001_api_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779658712298,
+      "tag": "0002_add_agency_id_tenant_scoping",
+      "breakpoints": true
     }
   ]
 }

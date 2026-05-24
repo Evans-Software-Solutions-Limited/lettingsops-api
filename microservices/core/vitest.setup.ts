@@ -48,12 +48,17 @@ const createChainableDb = () => {
 // Mock the database client globally
 vi.mock("@lettingsops/db", () => ({
   getDb: vi.fn(() => createChainableDb()),
-  communicationLogs: { id: {} },
-  leads: { id: {} },
-  viewings: { id: {} },
+  LEGACY_AGENCY_ID: "00000000-0000-0000-0000-000000000001",
+  // Block E.0 added agency_id to the five tenant-owned tables below.
+  // Listing every key the repos reference keeps drizzle's chainable
+  // mocks happy (`eq(leads.agencyId, ...)`).
+  communicationLogs: { id: {}, agencyId: {}, leadId: {} },
+  leads: { id: {}, agencyId: {}, email: {}, status: {}, propertyRef: {} },
+  viewings: { id: {}, agencyId: {}, leadId: {}, confirmedAt: {} },
   agencies: { id: {} },
   conversations: { id: {} },
-  qualifications: { id: {} },
+  qualifications: { id: {}, agencyId: {}, leadId: {} },
+  auditLogs: { id: {}, agencyId: {}, entityType: {}, entityId: {} },
   emailConversations: {
     id: {},
     agencyId: {},
