@@ -23,10 +23,10 @@ Work top to bottom. Each task is small enough to land in a single PR. Cross-cutt
 
 ## Block D — Auth (introduce, off by default)
 
-- [ ] **D1.** Add SST secret `LettingsOpsJwtSigningKey` to `infra/secrets.ts`. Wire it through `infra/api.ts` env.
-- [ ] **D2.** Add `microservices/core/src/application/auth/jwtVerifier.ts` (verify, return typed claims). Tests cover valid token, expired token, wrong-signature, missing claim cases.
-- [ ] **D3.** Add `authPlugin.ts` per design §1.3. Tests cover JWT path, API key path, missing creds path, revoked key path.
-- [ ] **D4.** Add env flag `AUTH_ENFORCED` (default `false`). When false, the plugin still resolves credentials if present but does not throw on missing.
+- [x] **D1.** Add SST secret `LettingsOpsJwtSigningKey` to `infra/secrets.ts`. Wire it through `infra/api.ts` env. _`AUTH_ENFORCED=false` baked into the env config so the next deploy ships Block D in soft mode without an operator step._
+- [x] **D2.** Add `microservices/core/src/application/auth/jwtVerifier.ts` (verify, return typed claims). Tests cover valid token, expired token, wrong-signature, missing claim cases. _Uses `jose` (HS256). Throws a typed `JwtVerificationError` whose `.reason` field classifies into a fixed PII-free bucket (`expired` / `bad_signature` / `malformed` / `missing_claim` / `wrong_claim_type` / `missing_signing_key`) for log triage and metric filters._
+- [x] **D3.** Add `authPlugin.ts` per design §1.3. Tests cover JWT path, API key path, missing creds path, revoked key path. _Plugin enriches the AsyncLocalStorage request context (from Block C) with `agencyId` + `estateAgentId` on successful resolution, so every downstream `logger.*` call carries those fields automatically. JWT path evaluated before API-key path when both headers are present._
+- [x] **D4.** Add env flag `AUTH_ENFORCED` (default `false`). When false, the plugin still resolves credentials if present but does not throw on missing. _Soft mode lowers the bar for **missing** creds only — bad creds still throw 401 in soft mode (broken auth headers are always an operator mistake worth surfacing). Only the exact lowercase string `"true"` is treated as enforced; ambiguous values (`"TRUE"`, `"1"`, `"yes"`) deliberately stay in soft mode._
 
 ## Block E — Tenant isolation (introduce, sentinel-tolerant)
 
