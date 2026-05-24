@@ -73,7 +73,7 @@ export const QualificationSubmitService = new Elysia({
   }> {
     // TODO(F1): pass `ctx.auth.agencyId` once `.use(auth)` is mounted.
     const leadRepo = new LeadRepository(undefined, ANY_AGENCY);
-    const qualRepo = new QualificationRepository();
+    const qualRepo = new QualificationRepository(undefined, ANY_AGENCY);
 
     const lead = await leadRepo.findById(leadId);
     if (!lead) throw new Error(`Lead not found: ${leadId}`);
