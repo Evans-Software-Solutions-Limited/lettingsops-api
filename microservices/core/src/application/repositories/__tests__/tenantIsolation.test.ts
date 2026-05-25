@@ -449,9 +449,14 @@ describe("Tenant isolation: ConversationRepository", () => {
     ]);
     const repo = new ConversationRepository(db, AGENCY_A);
     await repo.appendMessageId("conv-1", "msg-001");
-    // capture.wheres now has both the findById select and the
-    // update — both must scope to A.
-    expect(whereScopesTo(capture.wheres, AGENCY_A)).toBe(true);
+    // capture.wheres has TWO predicates: the findById SELECT and the
+    // UPDATE. We must assert *each one individually* scopes to A —
+    // the whole-array check would pass if only the SELECT carries the
+    // UUID, leaving the UPDATE silently unscoped.
+    expect(capture.wheres.length).toBeGreaterThanOrEqual(2);
+    expect(capture.wheres.every((w) => whereScopesTo([w], AGENCY_A))).toBe(
+      true,
+    );
   });
 
   it("setCollectedFields WHERE includes agency_id = A", async () => {
