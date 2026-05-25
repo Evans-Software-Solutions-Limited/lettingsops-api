@@ -80,8 +80,6 @@ export abstract class TenantScopedRepository {
 }
 
 /** Drop `undefined` entries from an SQL predicate list. */
-export function filterPredicates(
-  predicates: Array<SQL | undefined>,
-): SQL[] {
+export function filterPredicates(predicates: Array<SQL | undefined>): SQL[] {
   return predicates.filter((p): p is SQL => p !== undefined);
 }

@@ -141,10 +141,7 @@ function whereDoesNotScopeTo(captured: unknown[], agencyId: string): boolean {
 }
 
 /** Did the captured INSERT/SET record carry an `agencyId` field with the target value? */
-function valuesCarry(
-  captured: unknown[],
-  agencyId: string,
-): boolean {
+function valuesCarry(captured: unknown[], agencyId: string): boolean {
   if (captured.length === 0) return false;
   const last = captured[captured.length - 1] as Record<string, unknown>;
   return last?.agencyId === agencyId;
@@ -434,9 +431,9 @@ describe("Tenant isolation: ConversationRepository", () => {
   it("create refuses the ANY_AGENCY sentinel (no DEFAULT on this table)", async () => {
     const { db } = makeCapturingDb([]);
     const repo = new ConversationRepository(db, ANY_AGENCY);
-    await expect(
-      repo.create({ tenantEmail: "t@x.com" }),
-    ).rejects.toThrow(/requires a real agencyId/);
+    await expect(repo.create({ tenantEmail: "t@x.com" })).rejects.toThrow(
+      /requires a real agencyId/,
+    );
   });
 
   it("appendMessageId scopes the UPDATE by agencyId = A", async () => {

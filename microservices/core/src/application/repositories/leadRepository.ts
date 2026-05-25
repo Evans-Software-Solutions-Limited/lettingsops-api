@@ -183,7 +183,9 @@ export class LeadRepository extends TenantScopedRepository {
         filters.status
           ? eq(leads.status, filters.status as LeadStatus)
           : undefined,
-        filters.propertyRef ? eq(leads.propertyRef, filters.propertyRef) : undefined,
+        filters.propertyRef
+          ? eq(leads.propertyRef, filters.propertyRef)
+          : undefined,
       ]),
     );
 

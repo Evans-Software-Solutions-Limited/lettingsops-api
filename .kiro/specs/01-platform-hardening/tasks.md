@@ -30,10 +30,10 @@ Work top to bottom. Each task is small enough to land in a single PR. Cross-cutt
 
 ## Block E — Tenant isolation (introduce, sentinel-tolerant)
 
-- [ ] **E1.** Add `TenantScopedRepository` base class at `microservices/core/src/application/repositories/tenantScopedRepository.ts`. Tests cover the constructor and the protected `getAgencyId()` accessor.
-- [ ] **E2.** Refactor `leadRepository.ts` to extend `TenantScopedRepository`. Every read/write filters by `agencyId`. Until D4 is flipped on, accept a `"__any__"` sentinel that bypasses the filter; **mark the sentinel deprecated with a TODO referencing task F4**.
-- [ ] **E3.** Same refactor for `viewingRepository.ts`, `qualificationRepository.ts`, `conversationRepository.ts`. Each lands in its own commit so the diff stays readable.
-- [ ] **E4.** Add `tenantIsolation.test.ts` per design §2.3. Two agencies, every repository × every method.
+- [x] **E1.** Add `TenantScopedRepository` base class at `microservices/core/src/application/repositories/tenantScopedRepository.ts`. Tests cover the constructor and the protected `getAgencyId()` accessor. _Landed in commit `c6f08ef`. 11 unit tests covering construction, sentinel (`ANY_AGENCY = "__any__"`), `scopeWhere`, `writeAgencyId`, and `filterPredicates` helper._
+- [x] **E2.** Refactor `leadRepository.ts` to extend `TenantScopedRepository`. Every read/write filters by `agencyId`. Until D4 is flipped on, accept a `"__any__"` sentinel that bypasses the filter; **mark the sentinel deprecated with a TODO referencing task F4**. _Landed in commit `4f5c32d`. All 7 call-sites migrated; sentinel paths carry `// TODO(F1):` comments._
+- [x] **E3.** Same refactor for `viewingRepository.ts`, `qualificationRepository.ts`, `conversationRepository.ts`. Each lands in its own commit so the diff stays readable. _ViewingRepository: `7384f5e`, QualificationRepository: `4bd969d`, ConversationRepository tighten: `29e5813`. `email_conversations` table predates the transitional DEFAULT so `ConversationRepository.create()` refuses `ANY_AGENCY` sentinel — its only caller always has a real `agencyId`._
+- [x] **E4.** Add `tenantIsolation.test.ts` per design §2.3. Two agencies, every repository × every method. _Landed in commit `1ec52ab`. 26 contract tests across all four repositories; uses `vi.unmock("@lettingsops/db")` to capture real Drizzle column metadata; no fake assertions. Full suite: 29 files / 421 tests, 98.95% line / 94.21% branch coverage._
 
 ## Block F — Auth (turn it on)
 
