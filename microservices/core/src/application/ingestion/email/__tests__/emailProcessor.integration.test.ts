@@ -244,10 +244,13 @@ describe("Email Processing Integration", () => {
     });
 
     expect(result.conversationId).toBe("conv-123");
+    // `agencyId` moved from a per-call arg to a constructor field on
+    // ConversationRepository in Block E (E3c). The scope is verified
+    // at the constructor site (see conversationStateService), not on
+    // the create() input.
     expect(mockConversationRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({
         leadId: "lead-123",
-        agencyId: "agency-123",
       }),
     );
   });

@@ -68,7 +68,11 @@ describe("ConversationRepository", () => {
       insert: vi.fn(() => mockChain([mockConversationRow])),
       update: vi.fn(() => mockChain([])),
     } as unknown as Partial<Db>;
-    repo = new ConversationRepository(mockDb as Db);
+    // Construct with the same agencyId the mock row carries so the
+    // scope-match check in findByAgencyAndEmail passes for tests that
+    // also reference "agency-uuid-1". Tenant-leak prevention has its
+    // own coverage in tenantIsolation.test.ts (E4).
+    repo = new ConversationRepository(mockDb as Db, "agency-uuid-1");
   });
 
   // ── findByAgencyAndEmail ────────────────────────────────────────────────────
@@ -119,7 +123,6 @@ describe("ConversationRepository", () => {
   describe("create", () => {
     it("inserts a row and returns a mapped conversation", async () => {
       const conversation = await repo.create({
-        agencyId: "agency-uuid-1",
         tenantEmail: "tenant@example.com",
       });
 
@@ -135,7 +138,6 @@ describe("ConversationRepository", () => {
 
     it("includes leadId when provided", async () => {
       await repo.create({
-        agencyId: "agency-uuid-1",
         tenantEmail: "tenant@example.com",
         leadId: "lead-uuid-123",
       });
@@ -150,7 +152,6 @@ describe("ConversationRepository", () => {
 
       await expect(
         repo.create({
-          agencyId: "agency-uuid-1",
           tenantEmail: "tenant@example.com",
         }),
       ).rejects.toThrow("Failed to create conversation");
