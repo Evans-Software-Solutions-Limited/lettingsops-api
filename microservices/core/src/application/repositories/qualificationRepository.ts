@@ -2,10 +2,18 @@
  * QualificationRepository
  *
  * Data access for Qualification records — backed by Neon via Drizzle ORM.
+ *
+ * Tenant-scoped: every instance carries an `agencyId` (real UUID or the
+ * `ANY_AGENCY` sentinel). See `TenantScopedRepository`.
  */
-import { eq } from "drizzle-orm";
-import { type Db, getDb, qualifications } from "@lettingsops/db";
+import { and, eq } from "drizzle-orm";
+import { type Db, qualifications } from "@lettingsops/db";
 import type { ScoreCategory } from "./leadRepository";
+import {
+  type AgencyScope,
+  TenantScopedRepository,
+  filterPredicates,
+} from "./tenantScopedRepository";
 
 export type EmploymentStatus =
   | "employed"
@@ -59,19 +67,18 @@ function rowToQualification(
   };
 }
 
-export class QualificationRepository {
+export class QualificationRepository extends TenantScopedRepository {
   static readonly key = "QualificationRepository";
 
-  private db: Db;
-
-  constructor(db?: Db) {
-    this.db = db ?? getDb();
+  constructor(db: Db | undefined, agencyId: AgencyScope) {
+    super(db, agencyId);
   }
 
   async create(input: CreateQualificationInput): Promise<Qualification> {
     const [row] = await this.db
       .insert(qualifications)
       .values({
+        agencyId: this.writeAgencyId(),
         leadId: input.leadId,
         answers: input.answers as Record<string, unknown>,
         score: input.score,
@@ -88,7 +95,14 @@ export class QualificationRepository {
     const [row] = await this.db
       .select()
       .from(qualifications)
-      .where(eq(qualifications.leadId, leadId))
+      .where(
+        and(
+          ...filterPredicates([
+            eq(qualifications.leadId, leadId),
+            this.scopeWhere(qualifications.agencyId),
+          ]),
+        ),
+      )
       .orderBy(qualifications.createdAt)
       .limit(1);
 

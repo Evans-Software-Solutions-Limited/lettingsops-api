@@ -110,15 +110,21 @@ Respond with valid JSON only, no markdown.`;
       });
     }
 
-    // 5. Create or merge lead from LLM-extracted data
-    const ingestionResult = await processEmail({
-      messageId: key,
-      from: tenantEmail,
-      fromName: extractedFields.name, // Use LLM-extracted name if available
-      subject,
-      body: emailBody,
-      receivedAt: new Date().toISOString(),
-    });
+    // 5. Create or merge lead from LLM-extracted data.
+    //    `agency.id` was resolved at step 3 from the inbound recipient
+    //    address — pass it through so the lead is tenant-scoped from
+    //    creation, not after-the-fact via a sentinel.
+    const ingestionResult = await processEmail(
+      {
+        messageId: key,
+        from: tenantEmail,
+        fromName: extractedFields.name, // Use LLM-extracted name if available
+        subject,
+        body: emailBody,
+        receivedAt: new Date().toISOString(),
+      },
+      agency.id,
+    );
 
     const leadId = ingestionResult.leadId;
     logger.info("Lead processed", {

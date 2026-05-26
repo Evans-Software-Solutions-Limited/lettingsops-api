@@ -33,7 +33,13 @@ export type ConversationStateResult = {
 export async function processConversationState(
   input: ConversationStateInput,
 ): Promise<ConversationStateResult> {
-  const conversationRepo = new ConversationRepository();
+  // ConversationRepository is now tenant-scoped via its constructor.
+  // input.agencyId is the resolved agency for this conversation — pass
+  // it through so reads / writes are scope-checked at the DB.
+  const conversationRepo = new ConversationRepository(
+    undefined,
+    input.agencyId,
+  );
   const agencyRepo = new AgencyRepository();
 
   // 1. Find or create conversation
@@ -44,7 +50,6 @@ export async function processConversationState(
 
   if (!conversation) {
     conversation = await conversationRepo.create({
-      agencyId: input.agencyId,
       tenantEmail: input.tenantEmail,
       leadId: input.leadId,
       conversationType: input.conversationType,

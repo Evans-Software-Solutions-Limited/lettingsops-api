@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { processEmail } from "../emailIngestionService";
 import { processConversationState } from "../../../conversation/conversationStateService";
+import { ANY_AGENCY } from "../../../repositories/tenantScopedRepository";
 
 // Mock the repositories so we don't need real DB connections
 const mockLeadRepo = {
@@ -53,14 +54,17 @@ describe("Email Processing Integration", () => {
       updatedAt: "2024-06-01T10:00:00.000Z",
     });
 
-    const result = await processEmail({
-      messageId: "msg-llm-name",
-      from: "john@example.com",
-      fromName: "John Smith", // LLM-extracted name
-      subject: "Enquiry",
-      body: "Body",
-      receivedAt: new Date().toISOString(),
-    });
+    const result = await processEmail(
+      {
+        messageId: "msg-llm-name",
+        from: "john@example.com",
+        fromName: "John Smith", // LLM-extracted name
+        subject: "Enquiry",
+        body: "Body",
+        receivedAt: new Date().toISOString(),
+      },
+      ANY_AGENCY,
+    );
 
     expect(result.action).toBe("CREATED");
     expect(result.leadId).toBe("lead-123");
@@ -82,14 +86,17 @@ describe("Email Processing Integration", () => {
       updatedAt: "2024-06-01T10:00:00.000Z",
     });
 
-    const result = await processEmail({
-      messageId: "msg-no-llm-name",
-      from: "jane.doe@example.com",
-      // No fromName provided
-      subject: "Enquiry",
-      body: "Body",
-      receivedAt: new Date().toISOString(),
-    });
+    const result = await processEmail(
+      {
+        messageId: "msg-no-llm-name",
+        from: "jane.doe@example.com",
+        // No fromName provided
+        subject: "Enquiry",
+        body: "Body",
+        receivedAt: new Date().toISOString(),
+      },
+      ANY_AGENCY,
+    );
 
     expect(result.action).toBe("CREATED");
     expect(mockLeadRepo.create).toHaveBeenCalledWith(
@@ -112,14 +119,17 @@ describe("Email Processing Integration", () => {
 
     mockLeadRepo.findByMessageId.mockResolvedValue(existingLead);
 
-    const result = await processEmail({
-      messageId: "msg-dup",
-      from: "test@example.com",
-      fromName: "Test User",
-      subject: "Enquiry",
-      body: "Body",
-      receivedAt: new Date().toISOString(),
-    });
+    const result = await processEmail(
+      {
+        messageId: "msg-dup",
+        from: "test@example.com",
+        fromName: "Test User",
+        subject: "Enquiry",
+        body: "Body",
+        receivedAt: new Date().toISOString(),
+      },
+      ANY_AGENCY,
+    );
 
     expect(result.action).toBe("IGNORED");
     expect(result.leadId).toBe("lead-dup");
@@ -141,14 +151,17 @@ describe("Email Processing Integration", () => {
     mockLeadRepo.findByEmail.mockResolvedValue(existingLead);
     mockLeadRepo.addNote.mockResolvedValue(undefined);
 
-    const result = await processEmail({
-      messageId: "msg-second",
-      from: "user@example.com",
-      fromName: "User Name",
-      subject: "Follow-up",
-      body: "More info",
-      receivedAt: new Date().toISOString(),
-    });
+    const result = await processEmail(
+      {
+        messageId: "msg-second",
+        from: "user@example.com",
+        fromName: "User Name",
+        subject: "Follow-up",
+        body: "More info",
+        receivedAt: new Date().toISOString(),
+      },
+      ANY_AGENCY,
+    );
 
     expect(result.action).toBe("MERGED");
     expect(result.leadId).toBe("lead-merge");
@@ -167,14 +180,17 @@ describe("Email Processing Integration", () => {
       updatedAt: "2024-06-01T10:00:00.000Z",
     });
 
-    const result = await processEmail({
-      messageId: "msg-fields",
-      from: "alice@example.com",
-      fromName: "Alice Johnson", // LLM-extracted
-      subject: "Enquiry",
-      body: "Body with details",
-      receivedAt: new Date().toISOString(),
-    });
+    const result = await processEmail(
+      {
+        messageId: "msg-fields",
+        from: "alice@example.com",
+        fromName: "Alice Johnson", // LLM-extracted
+        subject: "Enquiry",
+        body: "Body with details",
+        receivedAt: new Date().toISOString(),
+      },
+      ANY_AGENCY,
+    );
 
     expect(result.action).toBe("CREATED");
     expect(mockLeadRepo.create).toHaveBeenCalledWith(
@@ -228,10 +244,13 @@ describe("Email Processing Integration", () => {
     });
 
     expect(result.conversationId).toBe("conv-123");
+    // `agencyId` moved from a per-call arg to a constructor field on
+    // ConversationRepository in Block E (E3c). The scope is verified
+    // at the constructor site (see conversationStateService), not on
+    // the create() input.
     expect(mockConversationRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({
         leadId: "lead-123",
-        agencyId: "agency-123",
       }),
     );
   });

@@ -1,6 +1,10 @@
 import Elysia from "elysia";
 import { type Db } from "@lettingsops/db";
 import { LeadRepository } from "../../repositories/leadRepository";
+import {
+  ANY_AGENCY,
+  type AgencyScope,
+} from "../../repositories/tenantScopedRepository";
 
 export type EmailPayload = {
   messageId: string;
@@ -18,14 +22,20 @@ export type IngestionResult = {
 };
 
 /**
- * Core logic for processing email ingestion and lead creation
- * Can be used directly without Elysia (e.g., in Lambda)
+ * Core logic for processing email ingestion and lead creation.
+ * Can be used directly without Elysia (e.g., in Lambda).
+ *
+ * `agencyId` is required so the lead is created scoped to the right
+ * tenant. The Lambda caller resolves it from the inbound recipient
+ * address; the Elysia plugin path (HTTP) passes `ANY_AGENCY` until
+ * Block F threads the auth context through.
  */
 export async function processEmail(
   payload: EmailPayload,
+  agencyId: AgencyScope,
   db?: Db,
 ): Promise<IngestionResult> {
-  const repo = new LeadRepository(db);
+  const repo = new LeadRepository(db, agencyId);
 
   // Idempotency: check if we've already processed this messageId
   const existing = await repo.findByMessageId(payload.messageId);
@@ -69,6 +79,9 @@ export const EmailIngestionService = new Elysia({
   name: "EmailIngestionService",
 }).decorate("emailIngestionService", {
   async processEmail(payload: EmailPayload): Promise<IngestionResult> {
-    return processEmail(payload);
+    // TODO(F1): pull `agencyId` from `ctx.auth.agencyId` once `.use(auth)`
+    // is mounted on this route. Until then HTTP-path callers fall through
+    // the ANY_AGENCY sentinel — see TenantScopedRepository.
+    return processEmail(payload, ANY_AGENCY);
   },
 });

@@ -1,5 +1,6 @@
 import Elysia from "elysia";
 import { LeadRepository } from "../../repositories/leadRepository";
+import { ANY_AGENCY } from "../../repositories/tenantScopedRepository";
 
 export const LeadsListService = new Elysia({
   name: "LeadsListService",
@@ -10,7 +11,8 @@ export const LeadsListService = new Elysia({
     page?: number;
     limit?: number;
   }) {
-    const repo = new LeadRepository();
+    // TODO(F1): pass `ctx.auth.agencyId` once `.use(auth)` is mounted.
+    const repo = new LeadRepository(undefined, ANY_AGENCY);
     return repo.list({
       status: filters.status,
       propertyRef: filters.propertyRef,

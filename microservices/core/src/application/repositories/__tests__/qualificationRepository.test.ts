@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { QualificationRepository } from "../qualificationRepository";
+import { ANY_AGENCY } from "../tenantScopedRepository";
 import type { Db } from "@lettingsops/db";
 
 // ─── Mock DB helper ───────────────────────────────────────────────────────────
@@ -62,7 +63,9 @@ describe("QualificationRepository", () => {
       insert: vi.fn(() => mockChain([mockQualRow])),
       select: vi.fn(() => mockChain([mockQualRow])),
     } as unknown as Partial<Db>;
-    repo = new QualificationRepository(mockDb as Db);
+    // Existing tests exercise unscoped behaviour; tenant-scoped semantics
+    // get covered in `tenantIsolation.test.ts` (E4).
+    repo = new QualificationRepository(mockDb as Db, ANY_AGENCY);
   });
 
   describe("create", () => {

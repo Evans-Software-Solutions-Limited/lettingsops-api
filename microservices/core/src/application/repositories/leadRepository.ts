@@ -2,10 +2,20 @@
  * LeadRepository
  *
  * Data access for Lead entities — backed by Neon (serverless Postgres) via Drizzle ORM.
- * Pass a `db` instance to the constructor to inject a test database.
+ *
+ * Tenant-scoped: every instance carries an `agencyId` (real UUID or the
+ * `ANY_AGENCY` sentinel during the Block E → F migration window).
+ * Reads filter by it; writes inject it. Sentinel-scoped instances
+ * bypass the filter and rely on the column DEFAULT for writes — see
+ * `TenantScopedRepository`.
  */
 import { and, count, eq } from "drizzle-orm";
-import { type Db, communicationLogs, getDb, leads } from "@lettingsops/db";
+import { type Db, communicationLogs, leads } from "@lettingsops/db";
+import {
+  type AgencyScope,
+  TenantScopedRepository,
+  filterPredicates,
+} from "./tenantScopedRepository";
 
 export type LeadStatus =
   | "NEW"
@@ -75,19 +85,21 @@ function rowToLead(row: typeof leads.$inferSelect): Lead {
   };
 }
 
-export class LeadRepository {
+export class LeadRepository extends TenantScopedRepository {
   static readonly key = "LeadRepository";
 
-  private db: Db;
-
-  constructor(db?: Db) {
-    this.db = db ?? getDb();
+  constructor(db: Db | undefined, agencyId: AgencyScope) {
+    super(db, agencyId);
   }
 
   async create(input: CreateLeadInput): Promise<Lead> {
     const [row] = await this.db
       .insert(leads)
       .values({
+        // `agencyId` is omitted when sentinel-scoped — the column's
+        // transitional DEFAULT (LEGACY_AGENCY_ID) fills in. Real-agency
+        // instances pass the resolved UUID.
+        agencyId: this.writeAgencyId(),
         name: input.name,
         email: input.email,
         phone: input.phone,
@@ -107,7 +119,14 @@ export class LeadRepository {
     const [row] = await this.db
       .select()
       .from(leads)
-      .where(eq(leads.id, id))
+      .where(
+        and(
+          ...filterPredicates([
+            eq(leads.id, id),
+            this.scopeWhere(leads.agencyId),
+          ]),
+        ),
+      )
       .limit(1);
     return row ? rowToLead(row) : null;
   }
@@ -116,17 +135,33 @@ export class LeadRepository {
     const [row] = await this.db
       .select()
       .from(leads)
-      .where(eq(leads.email, email))
+      .where(
+        and(
+          ...filterPredicates([
+            eq(leads.email, email),
+            this.scopeWhere(leads.agencyId),
+          ]),
+        ),
+      )
       .limit(1);
     return row ? rowToLead(row) : null;
   }
 
   async findByMessageId(messageId: string): Promise<Lead | null> {
-    // Look up the lead via communication_logs (email messageId stored there)
+    // Look up the lead via communication_logs (email messageId stored there).
+    // Both tables are tenant-owned and carry agencyId post-Block-E.0; we
+    // scope both rather than relying on transitive scoping.
     const [log] = await this.db
       .select({ leadId: communicationLogs.leadId })
       .from(communicationLogs)
-      .where(eq(communicationLogs.messageId, messageId))
+      .where(
+        and(
+          ...filterPredicates([
+            eq(communicationLogs.messageId, messageId),
+            this.scopeWhere(communicationLogs.agencyId),
+          ]),
+        ),
+      )
       .limit(1);
 
     if (!log) return null;
@@ -142,15 +177,17 @@ export class LeadRepository {
     const { page, limit } = filters;
     const offset = (page - 1) * limit;
 
-    const conditions = [];
-    if (filters.status) {
-      conditions.push(eq(leads.status, filters.status as LeadStatus));
-    }
-    if (filters.propertyRef) {
-      conditions.push(eq(leads.propertyRef, filters.propertyRef));
-    }
-
-    const where = conditions.length > 0 ? and(...conditions) : undefined;
+    const where = and(
+      ...filterPredicates([
+        this.scopeWhere(leads.agencyId),
+        filters.status
+          ? eq(leads.status, filters.status as LeadStatus)
+          : undefined,
+        filters.propertyRef
+          ? eq(leads.propertyRef, filters.propertyRef)
+          : undefined,
+      ]),
+    );
 
     const [rows, [totalRow]] = await Promise.all([
       this.db.select().from(leads).where(where).limit(limit).offset(offset),
@@ -169,7 +206,14 @@ export class LeadRepository {
     await this.db
       .update(leads)
       .set({ status, updatedAt: new Date() })
-      .where(eq(leads.id, id));
+      .where(
+        and(
+          ...filterPredicates([
+            eq(leads.id, id),
+            this.scopeWhere(leads.agencyId),
+          ]),
+        ),
+      );
   }
 
   async updateScore(
@@ -180,7 +224,14 @@ export class LeadRepository {
     await this.db
       .update(leads)
       .set({ score, scoreCategory: category, updatedAt: new Date() })
-      .where(eq(leads.id, id));
+      .where(
+        and(
+          ...filterPredicates([
+            eq(leads.id, id),
+            this.scopeWhere(leads.agencyId),
+          ]),
+        ),
+      );
   }
 
   async addNote(
@@ -193,7 +244,10 @@ export class LeadRepository {
       receivedAt: string;
     },
   ): Promise<void> {
+    // Both `communication_logs` and `leads` are tenant-owned. We stamp
+    // the note row with the same agencyId scope as the parent lead.
     await this.db.insert(communicationLogs).values({
+      agencyId: this.writeAgencyId(),
       leadId: id,
       source: note.source,
       messageId: note.messageId,
