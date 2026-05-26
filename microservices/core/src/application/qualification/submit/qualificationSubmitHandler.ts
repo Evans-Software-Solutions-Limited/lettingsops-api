@@ -1,12 +1,16 @@
 import Elysia, { t } from "elysia";
+import { auth } from "../../auth/authPlugin";
+import { ANY_AGENCY } from "../../repositories/tenantScopedRepository";
 import { QualificationSubmitService } from "./qualificationSubmitService";
 
 export const qualificationSubmitHandler = new Elysia()
+  .use(auth)
   .use(QualificationSubmitService)
   .post(
     "/leads/:id/qualification",
     async (ctx) => {
       return ctx.qualificationSubmitService.submitQualification(
+        ctx.auth.agencyId ?? ANY_AGENCY,
         ctx.params.id,
         ctx.body,
       );

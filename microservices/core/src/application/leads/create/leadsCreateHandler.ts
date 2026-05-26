@@ -1,12 +1,22 @@
 import Elysia, { t } from "elysia";
+import { auth } from "../../auth/authPlugin";
+import { ANY_AGENCY } from "../../repositories/tenantScopedRepository";
 import { LeadsCreateService } from "./leadsCreateService";
 
-export const leadsCreateHandler = new Elysia().use(LeadsCreateService).post(
-  "/leads",
-  async (ctx) => {
-    const lead = await ctx.leadsCreateService.createLead(ctx.body);
-    return lead;
-  },
+export const leadsCreateHandler = new Elysia()
+  .use(auth)
+  .use(LeadsCreateService)
+  .post(
+    "/leads",
+    async (ctx) => {
+      // ctx.auth.agencyId is non-null when AUTH_ENFORCED=true (Block F4).
+      // While AUTH_ENFORCED=false the sentinel preserves pre-auth behaviour.
+      const lead = await ctx.leadsCreateService.createLead(
+        ctx.auth.agencyId ?? ANY_AGENCY,
+        ctx.body,
+      );
+      return lead;
+    },
   {
     body: t.Object({
       name: t.String(),

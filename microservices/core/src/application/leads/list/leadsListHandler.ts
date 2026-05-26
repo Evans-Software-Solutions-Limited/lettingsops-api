@@ -1,11 +1,19 @@
 import Elysia, { t } from "elysia";
+import { auth } from "../../auth/authPlugin";
+import { ANY_AGENCY } from "../../repositories/tenantScopedRepository";
 import { LeadsListService } from "./leadsListService";
 
-export const leadsListHandler = new Elysia().use(LeadsListService).get(
-  "/leads",
-  async (ctx) => {
-    return ctx.leadsListService.listLeads(ctx.query);
-  },
+export const leadsListHandler = new Elysia()
+  .use(auth)
+  .use(LeadsListService)
+  .get(
+    "/leads",
+    async (ctx) => {
+      return ctx.leadsListService.listLeads(
+        ctx.auth.agencyId ?? ANY_AGENCY,
+        ctx.query,
+      );
+    },
   {
     query: t.Object({
       status: t.Optional(t.String()),

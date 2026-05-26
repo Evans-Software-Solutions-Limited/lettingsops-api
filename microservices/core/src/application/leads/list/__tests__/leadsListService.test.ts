@@ -77,7 +77,7 @@ describe("LeadsListService", () => {
   });
 
   it("should accept empty filters object", async () => {
-    const result = await LeadsListService.decorator.leadsListService.listLeads(
+    const result = await LeadsListService.decorator.leadsListService.listLeads("agency-test-1",
       {},
     );
 
@@ -87,7 +87,7 @@ describe("LeadsListService", () => {
   });
 
   it("should return object with leads, total, page, limit", async () => {
-    const result = await LeadsListService.decorator.leadsListService.listLeads(
+    const result = await LeadsListService.decorator.leadsListService.listLeads("agency-test-1",
       {},
     );
 
@@ -98,7 +98,7 @@ describe("LeadsListService", () => {
   });
 
   it("should return leads as an array", async () => {
-    const result = await LeadsListService.decorator.leadsListService.listLeads(
+    const result = await LeadsListService.decorator.leadsListService.listLeads("agency-test-1",
       {},
     );
 

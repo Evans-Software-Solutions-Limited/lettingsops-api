@@ -1,7 +1,7 @@
 import Elysia from "elysia";
 import { LeadRepository } from "../../repositories/leadRepository";
 import { QualificationRepository } from "../../repositories/qualificationRepository";
-import { ANY_AGENCY } from "../../repositories/tenantScopedRepository";
+import { type AgencyScope } from "../../repositories/tenantScopedRepository";
 
 export type QualificationAnswers = {
   moveInDate: string;
@@ -64,6 +64,7 @@ export const QualificationSubmitService = new Elysia({
   name: "QualificationSubmitService",
 }).decorate("qualificationSubmitService", {
   async submitQualification(
+    agencyId: AgencyScope,
     leadId: string,
     answers: QualificationAnswers,
   ): Promise<{
@@ -71,9 +72,8 @@ export const QualificationSubmitService = new Elysia({
     score: number;
     category: ScoreCategory;
   }> {
-    // TODO(F1): pass `ctx.auth.agencyId` once `.use(auth)` is mounted.
-    const leadRepo = new LeadRepository(undefined, ANY_AGENCY);
-    const qualRepo = new QualificationRepository(undefined, ANY_AGENCY);
+    const leadRepo = new LeadRepository(undefined, agencyId);
+    const qualRepo = new QualificationRepository(undefined, agencyId);
 
     const lead = await leadRepo.findById(leadId);
     if (!lead) throw new Error(`Lead not found: ${leadId}`);

@@ -1,12 +1,18 @@
 import Elysia, { t } from "elysia";
+import { auth } from "../../auth/authPlugin";
+import { ANY_AGENCY } from "../../repositories/tenantScopedRepository";
 import { LeadsCommunicationService } from "./leadsCommunicationService";
 
 export const leadsCommunicationHandler = new Elysia()
+  .use(auth)
   .use(LeadsCommunicationService)
   .get(
     "/leads/:id/communication",
     async (ctx) => {
-      return ctx.leadsCommunicationService.getCommunication(ctx.params.id);
+      return ctx.leadsCommunicationService.getCommunication(
+        ctx.auth.agencyId ?? ANY_AGENCY,
+        ctx.params.id,
+      );
     },
     {
       params: t.Object({ id: t.String() }),

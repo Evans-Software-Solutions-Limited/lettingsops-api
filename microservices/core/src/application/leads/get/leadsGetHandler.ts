@@ -1,12 +1,20 @@
 import Elysia, { t } from "elysia";
+import { auth } from "../../auth/authPlugin";
+import { ANY_AGENCY } from "../../repositories/tenantScopedRepository";
 import { LeadsGetService } from "./leadsGetService";
 
-export const leadsGetHandler = new Elysia().use(LeadsGetService).get(
-  "/leads/:id",
-  async (ctx) => {
-    const lead = await ctx.leadsGetService.getLead(ctx.params.id);
-    return lead;
-  },
+export const leadsGetHandler = new Elysia()
+  .use(auth)
+  .use(LeadsGetService)
+  .get(
+    "/leads/:id",
+    async (ctx) => {
+      const lead = await ctx.leadsGetService.getLead(
+        ctx.auth.agencyId ?? ANY_AGENCY,
+        ctx.params.id,
+      );
+      return lead;
+    },
   {
     params: t.Object({ id: t.String() }),
     response: {
