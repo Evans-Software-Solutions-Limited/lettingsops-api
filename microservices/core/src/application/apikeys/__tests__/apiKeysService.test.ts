@@ -53,6 +53,7 @@ describe("ApiKeysService", () => {
       expect(result.id).toBe("key-uuid-1");
       expect(result.agencyId).toBe("agency-uuid-1");
       expect(result.label).toBe("CI deploy"); // mapped back from row.name
+      expect(result.prefix).toBe("abc123de");
       expect(typeof result.key).toBe("string");
       expect(result.key.length).toBeGreaterThanOrEqual(32);
       expect(result.createdAt).toBe(NOW.toISOString());
@@ -98,6 +99,7 @@ describe("ApiKeysService", () => {
         id: "key-uuid-1",
         agencyId: "agency-uuid-1",
         label: "CI deploy", // row.name mapped to label
+        prefix: "abc123de",
         lastUsedAt: null,
         revokedAt: null,
         createdAt: NOW.toISOString(),

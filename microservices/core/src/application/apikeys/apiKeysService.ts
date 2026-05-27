@@ -18,6 +18,8 @@ export type CreatedApiKey = {
   id: string;
   agencyId: string;
   label: string | null;
+  /** First 8 chars of the raw key — shown in the dashboard for identification. */
+  prefix: string;
   /** Raw key — shown only once. Not stored; store the hash only. */
   key: string;
   createdAt: string;
@@ -27,6 +29,8 @@ export type ApiKeyListItem = {
   id: string;
   agencyId: string;
   label: string | null;
+  /** First 8 chars of the raw key — shown in the dashboard for identification. */
+  prefix: string;
   lastUsedAt: string | null;
   revokedAt: string | null;
   createdAt: string;
@@ -77,6 +81,7 @@ export const ApiKeysService = new Elysia({
       id: row.id,
       agencyId: row.agencyId,
       label: row.name === "" ? null : row.name,
+      prefix: row.prefix,
       key: rawKey,
       createdAt: row.createdAt.toISOString(),
     };
@@ -92,6 +97,7 @@ export const ApiKeysService = new Elysia({
       id: row.id,
       agencyId: row.agencyId,
       label: row.name === "" ? null : row.name,
+      prefix: row.prefix,
       lastUsedAt: row.lastUsedAt ? row.lastUsedAt.toISOString() : null,
       revokedAt: row.revokedAt ? row.revokedAt.toISOString() : null,
       createdAt: row.createdAt.toISOString(),

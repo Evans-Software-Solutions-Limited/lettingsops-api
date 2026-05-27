@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { setToken } from "@/lib/auth";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -15,13 +14,12 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // TODO(G): replace with real POST /auth/login once the backend login
-    // endpoint lands. For now we simulate login and store a dev-only
-    // placeholder token so the Eden Treaty client sends an Authorization
-    // header — enough to test the Block F auth wiring end-to-end in a
-    // local dev environment where AUTH_ENFORCED=false.
+    // TODO(auth-login): replace with real POST /auth/login once the backend
+    // login endpoint lands. Until then, navigate without storing a token so
+    // requests pass through anonymously in soft mode (AUTH_ENFORCED=false).
+    // Do NOT store a placeholder string — the auth plugin treats any Bearer
+    // value as a JWT and will throw 401 on a malformed token.
     setTimeout(() => {
-      setToken("dev-placeholder-token");
       setIsLoading(false);
       navigate("/");
     }, 800);
