@@ -6,7 +6,8 @@ const NOW = new Date("2024-06-01T10:00:00.000Z");
 const mockKeyRow = {
   id: "key-uuid-1",
   agencyId: "agency-uuid-1",
-  label: "CI deploy",
+  name: "CI deploy", // DB column is `name`; service maps "" → null on reads
+  prefix: "abc123de",
   keyHash: "abc123hash",
   lastUsedAt: null,
   revokedAt: null,
@@ -45,13 +46,13 @@ describe("ApiKeysService", () => {
       expect(mockRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
           agencyId: "agency-uuid-1",
-          label: "CI deploy",
+          name: "CI deploy", // stored as `name` in DB
           keyHash: expect.any(String),
         }),
       );
       expect(result.id).toBe("key-uuid-1");
       expect(result.agencyId).toBe("agency-uuid-1");
-      expect(result.label).toBe("CI deploy");
+      expect(result.label).toBe("CI deploy"); // mapped back from row.name
       expect(typeof result.key).toBe("string");
       expect(result.key.length).toBeGreaterThanOrEqual(32);
       expect(result.createdAt).toBe(NOW.toISOString());
@@ -68,14 +69,14 @@ describe("ApiKeysService", () => {
       expect(keyHash).toMatch(/^[a-f0-9]{64}$/);
     });
 
-    it("passes null label when none is provided", async () => {
-      mockRepo.create.mockResolvedValue({ ...mockKeyRow, label: null });
+    it("passes empty-string name (null label) when none is provided", async () => {
+      mockRepo.create.mockResolvedValue({ ...mockKeyRow, name: "" });
       const result = await svc.createApiKey("agency-uuid-1");
 
       expect(mockRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ label: null }),
+        expect.objectContaining({ name: "" }), // "" stored when no label given
       );
-      expect(result.label).toBeNull();
+      expect(result.label).toBeNull(); // "" normalised to null on read
     });
 
     it("throws 401 when agencyId is null", async () => {
@@ -96,7 +97,7 @@ describe("ApiKeysService", () => {
       expect(result[0]).toMatchObject({
         id: "key-uuid-1",
         agencyId: "agency-uuid-1",
-        label: "CI deploy",
+        label: "CI deploy", // row.name mapped to label
         lastUsedAt: null,
         revokedAt: null,
         createdAt: NOW.toISOString(),
@@ -105,9 +106,7 @@ describe("ApiKeysService", () => {
 
     it("maps revokedAt to ISO string when present", async () => {
       const revokedAt = new Date("2024-07-01T09:00:00.000Z");
-      mockRepo.listForAgency.mockResolvedValue([
-        { ...mockKeyRow, revokedAt },
-      ]);
+      mockRepo.listForAgency.mockResolvedValue([{ ...mockKeyRow, revokedAt }]);
 
       const result = await svc.listApiKeys("agency-uuid-1");
       expect(result[0].revokedAt).toBe(revokedAt.toISOString());

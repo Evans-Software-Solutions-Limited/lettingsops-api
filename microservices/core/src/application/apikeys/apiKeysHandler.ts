@@ -15,10 +15,7 @@ export const apiKeysHandler = new Elysia()
   .post(
     "/api-keys",
     async (ctx) => {
-      return ctx.apiKeysService.createApiKey(
-        ctx.auth.agencyId,
-        ctx.body.label,
-      );
+      return ctx.apiKeysService.createApiKey(ctx.auth.agencyId, ctx.body.label);
     },
     {
       body: t.Object({

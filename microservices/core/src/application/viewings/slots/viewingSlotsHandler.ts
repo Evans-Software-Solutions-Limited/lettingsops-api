@@ -14,23 +14,23 @@ export const viewingSlotsHandler = new Elysia()
         ctx.query,
       );
     },
-  {
-    query: t.Object({
-      propertyRef: t.String(),
-      from: t.String({ format: "date" }),
-      to: t.String({ format: "date" }),
-    }),
-    response: {
-      200: t.Object({
-        slots: t.Array(
-          t.Object({
-            id: t.String(),
-            startsAt: t.String(),
-            endsAt: t.String(),
-            available: t.Boolean(),
-          }),
-        ),
+    {
+      query: t.Object({
+        propertyRef: t.String(),
+        from: t.String({ format: "date" }),
+        to: t.String({ format: "date" }),
       }),
+      response: {
+        200: t.Object({
+          slots: t.Array(
+            t.Object({
+              id: t.String(),
+              startsAt: t.String(),
+              endsAt: t.String(),
+              available: t.Boolean(),
+            }),
+          ),
+        }),
+      },
     },
-  },
-);
+  );

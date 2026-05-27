@@ -37,9 +37,9 @@ Work top to bottom. Each task is small enough to land in a single PR. Cross-cutt
 
 ## Block F — Auth (turn it on)
 
-- [ ] **F1.** Update every handler in `microservices/core/src/api.ts` to `.use(auth)` and read `agencyId` from context.
-- [ ] **F2.** Update the dashboard (`packages/web`) to attach the JWT to its API calls via Eden Treaty's auth header config.
-- [ ] **F3.** Add an `/api-keys` admin endpoint pair (`POST` to issue, `GET` to list, `DELETE` to revoke). API-key-auth-only, scoped to the caller's agency.
+- [x] **F1.** Update every handler in `microservices/core/src/api.ts` to `.use(auth)` and read `agencyId` from context. _Landed in commit `f538070`. Auth mounted on all 7 business handlers (leadsCreate, leadsGet, leadsList, leadsCommunication, qualificationSubmit, viewingBook, viewingSlots). Webhook routes (emailIngestion, ElevenLabs) intentionally excluded (§1.4). All service methods now accept `agencyId: AgencyScope` as first param; handlers pass `ctx.auth.agencyId ?? ANY_AGENCY` (soft mode until F4)._
+- [x] **F2.** Update the dashboard (`packages/web`) to attach the JWT to its API calls via Eden Treaty's auth header config. _Landed in commit `734b095`. Added `packages/web/src/lib/auth.ts` (localStorage token store). Eden Treaty `onRequest` hook reads from localStorage per-request (not at module-init time, so token changes are picked up immediately). Login.tsx stores a dev-placeholder token on simulated login — TODO: replace with real `POST /auth/login` once auth endpoint lands._
+- [x] **F3.** Add an `/api-keys` admin endpoint pair (`POST` to issue, `GET` to list, `DELETE` to revoke). API-key-auth-only, scoped to the caller's agency. _Landed in commit `f7442b1`. Raw key returned once on creation (32 bytes → 64-char hex); stored as SHA-256 hash; `prefix` = first 8 chars for display. `requireAgencyId()` throws `HttpError(401)` for null. Ownership verified by `listForAgency` before revoke to prevent cross-agency key deletion. 12 service tests + 8 handler structural tests. Also fixed pre-existing `erasableSyntaxOnly` TS errors in `httpError.ts` / `jwtVerifier.ts` (Block D parameter properties, exposed by F2's web import chain)._
 - [ ] **F4.** Flip `AUTH_ENFORCED=true` in preprod. Confirm dashboard still works end-to-end. Then remove the sentinel handling in repositories (Block E1–E3).
 - [ ] **F5.** Flip `AUTH_ENFORCED=true` in production after 24 hours of preprod green.
 

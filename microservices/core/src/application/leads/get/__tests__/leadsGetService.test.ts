@@ -45,15 +45,20 @@ describe("LeadsGetService", () => {
     mockLeadRepo.findById.mockResolvedValue(null);
 
     await expect(
-      LeadsGetService.decorator.leadsGetService.getLead("agency-test-1", "non-existent-lead"),
+      LeadsGetService.decorator.leadsGetService.getLead(
+        "agency-test-1",
+        "non-existent-lead",
+      ),
     ).rejects.toThrow("Lead not found");
   });
 
   it("should return lead when found", async () => {
     mockLeadRepo.findById.mockResolvedValue(mockLead);
 
-    const result =
-      await LeadsGetService.decorator.leadsGetService.getLead("agency-test-1", "lead-1");
+    const result = await LeadsGetService.decorator.leadsGetService.getLead(
+      "agency-test-1",
+      "lead-1",
+    );
 
     expect(result).toEqual(mockLead);
     expect(mockLeadRepo.findById).toHaveBeenCalledWith("lead-1");

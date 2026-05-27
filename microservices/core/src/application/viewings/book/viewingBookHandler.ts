@@ -14,18 +14,18 @@ export const viewingBookHandler = new Elysia()
         ctx.body,
       );
     },
-  {
-    body: t.Object({
-      leadId: t.String(),
-      propertyRef: t.String(),
-      slotId: t.String(),
-    }),
-    response: {
-      200: t.Object({
-        viewingId: t.String(),
-        confirmedAt: t.String(),
-        calendarEventId: t.Optional(t.String()),
+    {
+      body: t.Object({
+        leadId: t.String(),
+        propertyRef: t.String(),
+        slotId: t.String(),
       }),
+      response: {
+        200: t.Object({
+          viewingId: t.String(),
+          confirmedAt: t.String(),
+          calendarEventId: t.Optional(t.String()),
+        }),
+      },
     },
-  },
-);
+  );

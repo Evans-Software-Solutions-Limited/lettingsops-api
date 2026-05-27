@@ -39,10 +39,7 @@ function sha256Hex(input: string): string {
 /** Require a real (non-null) agencyId from the auth context. */
 function requireAgencyId(agencyId: string | null): string {
   if (!agencyId) {
-    throw new HttpError(
-      401,
-      "Authentication required to manage API keys",
-    );
+    throw new HttpError(401, "Authentication required to manage API keys");
   }
   return agencyId;
 }
@@ -65,16 +62,21 @@ export const ApiKeysService = new Elysia({
     const rawKey = randomBytes(32).toString("hex");
     const keyHash = sha256Hex(rawKey);
 
+    // Store human-readable label as `name` (DB column). Use "" when absent
+    // (the column is NOT NULL) and normalise back to null on reads.
     const row = await repo.create({
       agencyId: resolvedAgencyId,
       keyHash,
-      label: label ?? null,
+      name: label ?? "",
+      // First 8 chars of the raw key — displayed in the dashboard so users
+      // can identify which key is which without seeing the full secret.
+      prefix: rawKey.slice(0, 8),
     });
 
     return {
       id: row.id,
       agencyId: row.agencyId,
-      label: row.label,
+      label: row.name === "" ? null : row.name,
       key: rawKey,
       createdAt: row.createdAt.toISOString(),
     };
@@ -89,7 +91,7 @@ export const ApiKeysService = new Elysia({
     return rows.map((row) => ({
       id: row.id,
       agencyId: row.agencyId,
-      label: row.label,
+      label: row.name === "" ? null : row.name,
       lastUsedAt: row.lastUsedAt ? row.lastUsedAt.toISOString() : null,
       revokedAt: row.revokedAt ? row.revokedAt.toISOString() : null,
       createdAt: row.createdAt.toISOString(),

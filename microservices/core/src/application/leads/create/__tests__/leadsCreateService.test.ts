@@ -96,7 +96,10 @@ describe("LeadsCreateService", () => {
     };
 
     const result =
-      await LeadsCreateService.decorator.leadsCreateService.createLead("agency-test-1",input);
+      await LeadsCreateService.decorator.leadsCreateService.createLead(
+        "agency-test-1",
+        input,
+      );
 
     expect(result).toBeDefined();
     expect(result.status).toBe("NEW");
@@ -109,7 +112,10 @@ describe("LeadsCreateService", () => {
     };
 
     const result =
-      await LeadsCreateService.decorator.leadsCreateService.createLead("agency-test-1",input);
+      await LeadsCreateService.decorator.leadsCreateService.createLead(
+        "agency-test-1",
+        input,
+      );
 
     expect(result).toHaveProperty("id");
     expect(result).toHaveProperty("status");
@@ -123,7 +129,10 @@ describe("LeadsCreateService", () => {
     };
 
     const result =
-      await LeadsCreateService.decorator.leadsCreateService.createLead("agency-test-1",input);
+      await LeadsCreateService.decorator.leadsCreateService.createLead(
+        "agency-test-1",
+        input,
+      );
 
     expect(typeof result.id).toBe("string");
     expect(result.id).toBeTruthy();
@@ -136,7 +145,10 @@ describe("LeadsCreateService", () => {
     };
 
     const result =
-      await LeadsCreateService.decorator.leadsCreateService.createLead("agency-test-1",input);
+      await LeadsCreateService.decorator.leadsCreateService.createLead(
+        "agency-test-1",
+        input,
+      );
 
     expect(result.status).toBe("NEW");
   });
@@ -148,7 +160,10 @@ describe("LeadsCreateService", () => {
     };
 
     const result =
-      await LeadsCreateService.decorator.leadsCreateService.createLead("agency-test-1",input);
+      await LeadsCreateService.decorator.leadsCreateService.createLead(
+        "agency-test-1",
+        input,
+      );
 
     const isoRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
     expect(result.createdAt).toMatch(isoRegex);
@@ -161,7 +176,10 @@ describe("LeadsCreateService", () => {
     };
 
     const result =
-      await LeadsCreateService.decorator.leadsCreateService.createLead("agency-test-1",input);
+      await LeadsCreateService.decorator.leadsCreateService.createLead(
+        "agency-test-1",
+        input,
+      );
 
     expect(result).toBeDefined();
     expect(result.status).toBe("NEW");
@@ -178,7 +196,10 @@ describe("LeadsCreateService", () => {
     };
 
     const result =
-      await LeadsCreateService.decorator.leadsCreateService.createLead("agency-test-1",input);
+      await LeadsCreateService.decorator.leadsCreateService.createLead(
+        "agency-test-1",
+        input,
+      );
 
     expect(result).toBeDefined();
     expect(result.status).toBe("NEW");
@@ -193,7 +214,10 @@ describe("LeadsCreateService", () => {
     };
 
     const result =
-      await LeadsCreateService.decorator.leadsCreateService.createLead("agency-test-1",input);
+      await LeadsCreateService.decorator.leadsCreateService.createLead(
+        "agency-test-1",
+        input,
+      );
 
     expect(result).toBeDefined();
     expect(result.status).toBe("NEW");
@@ -208,7 +232,10 @@ describe("LeadsCreateService", () => {
     };
 
     const result =
-      await LeadsCreateService.decorator.leadsCreateService.createLead("agency-test-1",input);
+      await LeadsCreateService.decorator.leadsCreateService.createLead(
+        "agency-test-1",
+        input,
+      );
 
     expect(result).toBeDefined();
     expect(result.status).toBe("NEW");

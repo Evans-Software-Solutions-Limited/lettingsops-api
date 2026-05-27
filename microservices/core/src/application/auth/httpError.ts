@@ -12,11 +12,10 @@
  */
 export class HttpError extends Error {
   override name = "HttpError";
+  readonly status: number;
 
-  constructor(
-    public readonly status: number,
-    message: string,
-  ) {
+  constructor(status: number, message: string) {
     super(message);
+    this.status = status;
   }
 }

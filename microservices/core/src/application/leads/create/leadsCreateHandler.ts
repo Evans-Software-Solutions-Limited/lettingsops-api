@@ -17,28 +17,28 @@ export const leadsCreateHandler = new Elysia()
       );
       return lead;
     },
-  {
-    body: t.Object({
-      name: t.String(),
-      email: t.String({ format: "email" }),
-      phone: t.Optional(t.String()),
-      propertyRef: t.Optional(t.String()),
-      message: t.Optional(t.String()),
-      source: t.Optional(
-        t.Union([
-          t.Literal("email"),
-          t.Literal("phone"),
-          t.Literal("portal"),
-          t.Literal("manual"),
-        ]),
-      ),
-    }),
-    response: {
-      200: t.Object({
-        id: t.String(),
-        status: t.String(),
-        createdAt: t.String(),
+    {
+      body: t.Object({
+        name: t.String(),
+        email: t.String({ format: "email" }),
+        phone: t.Optional(t.String()),
+        propertyRef: t.Optional(t.String()),
+        message: t.Optional(t.String()),
+        source: t.Optional(
+          t.Union([
+            t.Literal("email"),
+            t.Literal("phone"),
+            t.Literal("portal"),
+            t.Literal("manual"),
+          ]),
+        ),
       }),
+      response: {
+        200: t.Object({
+          id: t.String(),
+          status: t.String(),
+          createdAt: t.String(),
+        }),
+      },
     },
-  },
-);
+  );
