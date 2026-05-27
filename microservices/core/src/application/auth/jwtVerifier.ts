@@ -46,10 +46,7 @@ export class JwtVerificationError extends Error {
     | "missing_claim"
     | "wrong_claim_type";
 
-  constructor(
-    message: string,
-    reason: JwtVerificationError["reason"],
-  ) {
+  constructor(message: string, reason: JwtVerificationError["reason"]) {
     super(message);
     this.reason = reason;
   }
