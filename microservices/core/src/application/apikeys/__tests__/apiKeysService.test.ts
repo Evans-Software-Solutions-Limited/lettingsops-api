@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ApiKeysService } from "../apiKeysService";
 
@@ -54,20 +55,23 @@ describe("ApiKeysService", () => {
       expect(result.agencyId).toBe("agency-uuid-1");
       expect(result.label).toBe("CI deploy"); // mapped back from row.name
       expect(result.prefix).toBe("abc123de");
-      expect(typeof result.key).toBe("string");
-      expect(result.key.length).toBeGreaterThanOrEqual(32);
+      expect(result.key).toMatch(/^[a-f0-9]{64}$/);
       expect(result.createdAt).toBe(NOW.toISOString());
     });
 
     it("stores the SHA-256 hash, not the raw key", async () => {
       mockRepo.create.mockResolvedValue(mockKeyRow);
-      await svc.createApiKey("agency-uuid-1");
+      const result = await svc.createApiKey("agency-uuid-1");
 
       const { keyHash } = mockRepo.create.mock.calls[0][0] as {
         keyHash: string;
       };
-      // Hash must be 64-char hex (SHA-256)
-      expect(keyHash).toMatch(/^[a-f0-9]{64}$/);
+      // Must not be the raw key — and must be sha256(rawKey).
+      expect(keyHash).not.toBe(result.key);
+      const expected = createHash("sha256")
+        .update(result.key, "utf8")
+        .digest("hex");
+      expect(keyHash).toBe(expected);
     });
 
     it("passes empty-string name (null label) when none is provided", async () => {
