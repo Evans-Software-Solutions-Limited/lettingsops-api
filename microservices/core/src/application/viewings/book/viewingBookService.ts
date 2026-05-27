@@ -1,7 +1,7 @@
 import Elysia from "elysia";
 import { LeadRepository } from "../../repositories/leadRepository";
 import { ViewingRepository } from "../../repositories/viewingRepository";
-import { ANY_AGENCY } from "../../repositories/tenantScopedRepository";
+import { type AgencyScope } from "../../repositories/tenantScopedRepository";
 
 export type BookViewingInput = {
   leadId: string;
@@ -12,14 +12,16 @@ export type BookViewingInput = {
 export const ViewingBookService = new Elysia({
   name: "ViewingBookService",
 }).decorate("viewingBookService", {
-  async bookViewing(input: BookViewingInput): Promise<{
+  async bookViewing(
+    agencyId: AgencyScope,
+    input: BookViewingInput,
+  ): Promise<{
     viewingId: string;
     confirmedAt: string;
     calendarEventId?: string;
   }> {
-    // TODO(F1): pass `ctx.auth.agencyId` once `.use(auth)` is mounted.
-    const leadRepo = new LeadRepository(undefined, ANY_AGENCY);
-    const viewingRepo = new ViewingRepository(undefined, ANY_AGENCY);
+    const leadRepo = new LeadRepository(undefined, agencyId);
+    const viewingRepo = new ViewingRepository(undefined, agencyId);
 
     const lead = await leadRepo.findById(input.leadId);
     if (!lead) throw new Error(`Lead not found: ${input.leadId}`);

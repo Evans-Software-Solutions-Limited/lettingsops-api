@@ -37,19 +37,18 @@ export interface JwtClaims {
 
 export class JwtVerificationError extends Error {
   override name = "JwtVerificationError";
+  /** Coarse classification used for log triage and metric filters. */
+  readonly reason:
+    | "missing_signing_key"
+    | "malformed"
+    | "expired"
+    | "bad_signature"
+    | "missing_claim"
+    | "wrong_claim_type";
 
-  constructor(
-    message: string,
-    /** Coarse classification used for log triage and metric filters. */
-    public readonly reason:
-      | "missing_signing_key"
-      | "malformed"
-      | "expired"
-      | "bad_signature"
-      | "missing_claim"
-      | "wrong_claim_type",
-  ) {
+  constructor(message: string, reason: JwtVerificationError["reason"]) {
     super(message);
+    this.reason = reason;
   }
 }
 

@@ -81,7 +81,10 @@ describe("ViewingBookService", () => {
     };
 
     await expect(
-      ViewingBookService.decorator.viewingBookService.bookViewing(input),
+      ViewingBookService.decorator.viewingBookService.bookViewing(
+        "agency-test-1",
+        input,
+      ),
     ).rejects.toThrow("Lead not found");
   });
 
@@ -97,7 +100,10 @@ describe("ViewingBookService", () => {
     };
 
     const result =
-      await ViewingBookService.decorator.viewingBookService.bookViewing(input);
+      await ViewingBookService.decorator.viewingBookService.bookViewing(
+        "agency-test-1",
+        input,
+      );
 
     expect(result.viewingId).toBe("viewing-1");
     expect(result.confirmedAt).toBe(mockViewing.confirmedAt);
@@ -177,7 +183,10 @@ describe("ViewingBookService", () => {
     };
 
     try {
-      await ViewingBookService.decorator.viewingBookService.bookViewing(input);
+      await ViewingBookService.decorator.viewingBookService.bookViewing(
+        "agency-test-1",
+        input,
+      );
     } catch (e) {
       // Expected to fail since lead won't be found with mock db
       expect((e as Error).message).toContain("Lead not found");

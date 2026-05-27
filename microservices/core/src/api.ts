@@ -13,6 +13,7 @@ import { emailIngestionHandler } from "./application/ingestion/email/emailIngest
 import { viewingSlotsHandler } from "./application/viewings/slots/viewingSlotsHandler";
 import { viewingBookHandler } from "./application/viewings/book/viewingBookHandler";
 import { elevenLabsWebhookHandler } from "./application/webhooks/elevenlabs/elevenLabsWebhookHandler";
+import { apiKeysHandler } from "./application/apikeys/apiKeysHandler";
 
 const app = new Elysia()
   // Seed AsyncLocalStorage request context (requestId) before anything else
@@ -32,7 +33,9 @@ const app = new Elysia()
   .use(elevenLabsWebhookHandler)
   // Viewings
   .use(viewingSlotsHandler)
-  .use(viewingBookHandler);
+  .use(viewingBookHandler)
+  // API key management (auth-protected, agency-scoped)
+  .use(apiKeysHandler);
 
 export type LettingsApi = typeof app;
 

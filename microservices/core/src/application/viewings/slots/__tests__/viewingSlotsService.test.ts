@@ -127,6 +127,7 @@ describe("ViewingSlotsService", () => {
 
     await expect(
       ViewingSlotsService.decorator.viewingSlotsService.getAvailableSlots(
+        "agency-test-1",
         query,
       ),
     ).rejects.toThrow("Not implemented: calendar integration pending");

@@ -14,7 +14,11 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulate login
+    // TODO(auth-login): replace with real POST /auth/login once the backend
+    // login endpoint lands. Until then, navigate without storing a token so
+    // requests pass through anonymously in soft mode (AUTH_ENFORCED=false).
+    // Do NOT store a placeholder string — the auth plugin treats any Bearer
+    // value as a JWT and will throw 401 on a malformed token.
     setTimeout(() => {
       setIsLoading(false);
       navigate("/");

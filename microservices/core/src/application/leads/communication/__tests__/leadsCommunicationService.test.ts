@@ -9,11 +9,12 @@ const mockDb = {
 
 vi.mock("@lettingsops/db", () => ({
   getDb: vi.fn(() => mockDb),
-  communicationLogs: { leadId: {} },
+  communicationLogs: { leadId: {}, agencyId: {} },
 }));
 
 vi.mock("drizzle-orm", () => ({
   eq: vi.fn((col, val) => ({ col, val })),
+  and: vi.fn((...args: unknown[]) => ({ and: args })),
 }));
 
 describe("LeadsCommunicationService", () => {
@@ -42,6 +43,7 @@ describe("LeadsCommunicationService", () => {
 
     const result =
       await LeadsCommunicationService.decorator.leadsCommunicationService.getCommunication(
+        "agency-test-1",
         "lead-123",
       );
 
@@ -83,6 +85,7 @@ describe("LeadsCommunicationService", () => {
 
     const result =
       await LeadsCommunicationService.decorator.leadsCommunicationService.getCommunication(
+        "agency-test-1",
         "lead-123",
       );
 
@@ -135,6 +138,7 @@ describe("LeadsCommunicationService", () => {
 
     const result =
       await LeadsCommunicationService.decorator.leadsCommunicationService.getCommunication(
+        "agency-test-1",
         "lead-123",
       );
 
@@ -169,6 +173,7 @@ describe("LeadsCommunicationService", () => {
 
     const result =
       await LeadsCommunicationService.decorator.leadsCommunicationService.getCommunication(
+        "agency-test-1",
         "lead-123",
       );
 
@@ -181,6 +186,7 @@ describe("LeadsCommunicationService", () => {
     mockDb.where.mockResolvedValue([]);
 
     await LeadsCommunicationService.decorator.leadsCommunicationService.getCommunication(
+      "agency-test-1",
       "lead-456",
     );
 
@@ -221,6 +227,7 @@ describe("LeadsCommunicationService", () => {
 
     const result =
       await LeadsCommunicationService.decorator.leadsCommunicationService.getCommunication(
+        "agency-test-1",
         "lead-123",
       );
 
