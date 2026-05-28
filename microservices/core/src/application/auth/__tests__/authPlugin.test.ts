@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import Elysia from "elysia";
 import { SignJWT } from "jose";
 import { auth, resolveAuth, type AuthContext } from "../authPlugin";
@@ -43,14 +43,7 @@ function makeRepo(
 }
 
 describe("resolveAuth", () => {
-  // Block out the env var so test runs don't leak each other's enforcement.
-  const prevAuthEnforced = process.env.AUTH_ENFORCED;
   beforeEach(() => {
-    delete process.env.AUTH_ENFORCED;
-  });
-  afterEach(() => {
-    if (prevAuthEnforced === undefined) delete process.env.AUTH_ENFORCED;
-    else process.env.AUTH_ENFORCED = prevAuthEnforced;
     vi.clearAllMocks();
   });
 
@@ -80,8 +73,7 @@ describe("resolveAuth", () => {
       expect(ctx.principal).toBe("user");
     });
 
-    it("throws 401 on an invalid token (even in soft mode)", async () => {
-      // Default AUTH_ENFORCED=undefined → soft mode. Bad creds still 401.
+    it("throws 401 on an invalid token", async () => {
       await expect(
         resolveAuth(makeHeaders({ authorization: "Bearer not-a-jwt" }), {
           signingKey: KEY,
@@ -200,7 +192,7 @@ describe("resolveAuth", () => {
       expect(touch).toHaveBeenCalledTimes(1);
     });
 
-    it("throws 401 on a missing / revoked key (even in soft mode)", async () => {
+    it("throws 401 on a missing / revoked key", async () => {
       const repo = makeRepo(); // findActive resolves to null by default
       await expect(
         resolveAuth(makeHeaders({ "x-api-key": "raw-key" }), {
@@ -213,62 +205,21 @@ describe("resolveAuth", () => {
   // ── Missing creds ──────────────────────────────────────────────────────────
 
   describe("missing credentials", () => {
-    it("resolves to anonymous when AUTH_ENFORCED is unset", async () => {
-      const ctx = await resolveAuth(makeHeaders());
-      expect(ctx).toEqual({
-        principal: "anonymous",
-        agencyId: null,
-        estateAgentId: null,
-        role: null,
-      });
-    });
-
-    it("resolves to anonymous when AUTH_ENFORCED='false'", async () => {
-      process.env.AUTH_ENFORCED = "false";
-      const ctx = await resolveAuth(makeHeaders());
-      expect(ctx.principal).toBe("anonymous");
-    });
-
-    it("treats only the exact string 'true' as enforced", async () => {
-      // Defence against ambiguous env values silently flipping behaviour.
-      for (const value of ["TRUE", "1", "yes", "on", "True"]) {
-        process.env.AUTH_ENFORCED = value;
-        const ctx = await resolveAuth(makeHeaders());
-        expect(ctx.principal).toBe("anonymous");
-      }
-    });
-
-    it("throws 401 when AUTH_ENFORCED='true'", async () => {
-      process.env.AUTH_ENFORCED = "true";
+    it("throws 401 when no Authorization or x-api-key header is present", async () => {
       await expect(resolveAuth(makeHeaders())).rejects.toMatchObject({
         status: 401,
         message: "Authentication required",
       });
     });
 
-    it("explicit enforced=true override (used for in-handler reuse)", async () => {
-      await expect(
-        resolveAuth(makeHeaders(), { enforced: true }),
-      ).rejects.toMatchObject({ status: 401 });
-    });
-
-    it("returns a fresh anonymous context per call — no shared singleton", async () => {
-      // Regression for Inspector Brad's lead on PR #34: Lambda warm
-      // containers re-use module-level state, so a shared `ANONYMOUS`
-      // singleton would leak the previous handler's mutation into every
-      // subsequent anonymous request on the same container. Even though
-      // `AuthContext` is typed as readonly, future refactors or `as any`
-      // escapes could mutate — so the runtime guarantee (fresh literal
-      // per call, distinct references) is the belt to that brace.
-      const a = await resolveAuth(makeHeaders());
-      const b = await resolveAuth(makeHeaders());
-      expect(a).not.toBe(b);
-      expect(a).toEqual(b); // structurally equal, but separate objects
-      // Mutating one via the type-system escape hatch must not affect the
-      // other. This would have been a real foot-gun once a handler did
-      // `if (!auth.agencyId) auth.agencyId = "..."` for dev defaulting.
-      (a as { agencyId: string | null }).agencyId = "leaked";
-      expect(b.agencyId).toBeNull();
+    it("the thrown error is an HttpError (so handler .onError can map 401)", async () => {
+      try {
+        await resolveAuth(makeHeaders());
+        throw new Error("expected throw");
+      } catch (err) {
+        expect(err).toBeInstanceOf(HttpError);
+        expect((err as HttpError).status).toBe(401);
+      }
     });
   });
 
@@ -312,19 +263,27 @@ describe("resolveAuth", () => {
       }
     });
 
-    it("falls through to anonymous (soft mode) when no creds present", async () => {
-      let seenCtx: AuthContext | undefined;
+    it("missing creds bubble HttpError(401) up to Elysia (handler .onError maps to 401)", async () => {
+      // The plugin throws HttpError(401, "Authentication required") from
+      // .derive when no Authorization or x-api-key header is present.
+      // Elysia surfaces the throw via onError — verify it reaches the app
+      // boundary unchanged so each handler's local onError can map it.
+      let caught: unknown;
       const app = new Elysia()
         .use(auth)
-        .get("/ping", ({ auth }: { auth: AuthContext }) => {
-          seenCtx = auth;
-          return "ok";
-        });
+        .onError(({ error }) => {
+          caught = error;
+          // Mirror the per-handler .onError pattern (see e.g.
+          // leadsCreateHandler) so the status reaches the response.
+          if (error instanceof HttpError) {
+            return new Response(error.message, { status: error.status });
+          }
+        })
+        .get("/ping", () => "ok");
 
       const res = await app.handle(new Request("http://localhost/ping"));
-      expect(res.status).toBe(200);
-      expect(seenCtx?.principal).toBe("anonymous");
-      expect(seenCtx?.agencyId).toBeNull();
+      expect(res.status).toBe(401);
+      expect(caught).toBeInstanceOf(HttpError);
     });
   });
 

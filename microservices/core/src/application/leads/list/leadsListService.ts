@@ -1,12 +1,11 @@
 import Elysia from "elysia";
 import { LeadRepository } from "../../repositories/leadRepository";
-import { type AgencyScope } from "../../repositories/tenantScopedRepository";
 
 export const LeadsListService = new Elysia({
   name: "LeadsListService",
 }).decorate("leadsListService", {
   async listLeads(
-    agencyId: AgencyScope,
+    agencyId: string,
     filters: {
       status?: string;
       propertyRef?: string;

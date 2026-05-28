@@ -1,5 +1,4 @@
 import Elysia from "elysia";
-import { type AgencyScope } from "../../repositories/tenantScopedRepository";
 
 export type SlotQuery = {
   propertyRef: string;
@@ -18,7 +17,7 @@ export const ViewingSlotsService = new Elysia({
   name: "ViewingSlotsService",
 }).decorate("viewingSlotsService", {
   async getAvailableSlots(
-    _agencyId: AgencyScope,
+    _agencyId: string,
     _query: SlotQuery,
   ): Promise<{ slots: Slot[] }> {
     // TODO: integrate with Google Calendar or Outlook Calendar API

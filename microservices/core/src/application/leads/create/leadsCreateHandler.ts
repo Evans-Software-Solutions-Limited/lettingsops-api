@@ -1,7 +1,6 @@
 import Elysia, { t } from "elysia";
 import { auth } from "../../auth/authPlugin";
 import { HttpError } from "../../auth/httpError";
-import { ANY_AGENCY } from "../../repositories/tenantScopedRepository";
 import { LeadsCreateService } from "./leadsCreateService";
 
 export const leadsCreateHandler = new Elysia()
@@ -21,10 +20,8 @@ export const leadsCreateHandler = new Elysia()
   .post(
     "/leads",
     async (ctx) => {
-      // ctx.auth.agencyId is non-null when AUTH_ENFORCED=true (Block F4).
-      // While AUTH_ENFORCED=false the sentinel preserves pre-auth behaviour.
       const lead = await ctx.leadsCreateService.createLead(
-        ctx.auth.agencyId ?? ANY_AGENCY,
+        ctx.auth.agencyId,
         ctx.body,
       );
       return lead;
