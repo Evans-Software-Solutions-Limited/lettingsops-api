@@ -19,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { IconSearch } from "@tabler/icons-react";
+import { IconSearch, IconInbox } from "@tabler/icons-react";
 
 // Mock data - in production, use TanStack Query
 const allLeads = [
@@ -89,19 +89,11 @@ const allLeads = [
   },
 ];
 
-const statusBadgeColor = (status: string) => {
-  switch (status) {
-    case "new":
-      return "bg-info text-white";
-    case "pending":
-      return "bg-warning text-white";
-    case "in_progress":
-      return "bg-accent text-white";
-    case "resolved":
-      return "bg-success text-white";
-    default:
-      return "bg-muted text-muted-foreground";
-  }
+const STATUS_STYLES: Record<string, string> = {
+  new: "bg-info/15 text-info",
+  pending: "bg-warning/15 text-warning",
+  in_progress: "bg-accent/15 text-accent",
+  resolved: "bg-success/15 text-success",
 };
 
 const statusLabel = (status: string) => {
@@ -114,15 +106,10 @@ const statusLabel = (status: string) => {
   return labels[status] || status;
 };
 
-const typeColor = (type: string) => {
-  switch (type) {
-    case "Maintenance":
-      return "bg-warning/10 text-warning border-warning/30";
-    case "Viewing Enquiry":
-      return "bg-accent/10 text-accent border-accent/30";
-    default:
-      return "bg-muted text-muted-foreground border-border";
-  }
+const TYPE_STYLES: Record<string, string> = {
+  Maintenance: "bg-warning/10 text-warning border-warning/20",
+  "Viewing Enquiry": "bg-accent/10 text-accent border-accent/20",
+  "General Enquiry": "bg-muted/50 text-muted-foreground border-border",
 };
 
 export default function Leads() {
@@ -143,79 +130,63 @@ export default function Leads() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-text">Leads</h1>
-        <p className="text-sm text-muted-foreground mt-2">
-          Manage all viewing enquiries, maintenance requests, and general
-          enquiries
+        <h1 className="text-2xl font-semibold text-text tracking-tight">
+          Leads
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Manage viewing enquiries, maintenance requests, and general enquiries
         </p>
       </div>
 
       {/* Filter Bar */}
-      <Card className="bg-surface-raised border-border p-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-text">Search</label>
-            <div className="relative">
-              <IconSearch
-                size={18}
-                className="absolute left-3 top-2.5 text-muted-foreground"
-              />
-              <Input
-                placeholder="Search by name or property..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 bg-surface border-border text-text"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-text">Status</label>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="bg-surface border-border text-text">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-surface-elevated border-border">
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="new">New</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="in_progress">In Progress</SelectItem>
-                <SelectItem value="resolved">Resolved</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-text">Type</label>
-            <Select>
-              <SelectTrigger className="bg-surface border-border text-text">
-                <SelectValue placeholder="All Types" />
-              </SelectTrigger>
-              <SelectContent className="bg-surface-elevated border-border">
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="viewing">Viewing Enquiry</SelectItem>
-                <SelectItem value="maintenance">Maintenance</SelectItem>
-                <SelectItem value="general">General Enquiry</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1 max-w-sm">
+          <IconSearch
+            size={16}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+            stroke={1.5}
+          />
+          <Input
+            placeholder="Search by name or property..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 bg-surface-raised border-border text-text h-9"
+          />
         </div>
-      </Card>
+
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="bg-surface-raised border-border text-text w-40 h-9">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="bg-surface-elevated border-border">
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="new">New</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="in_progress">In Progress</SelectItem>
+            <SelectItem value="resolved">Resolved</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
       {/* Leads Table */}
-      <div className="bg-surface-raised border border-border rounded-lg overflow-hidden">
+      <Card className="bg-surface-raised border-border overflow-hidden">
         <Table>
-          <TableHeader className="bg-surface border-b border-border">
+          <TableHeader>
             <TableRow className="hover:bg-transparent border-border">
-              <TableHead className="text-muted-foreground">Name</TableHead>
-              <TableHead className="text-muted-foreground">Property</TableHead>
-              <TableHead className="text-muted-foreground">Type</TableHead>
-              <TableHead className="text-muted-foreground">Status</TableHead>
-              <TableHead className="text-muted-foreground text-right">
-                Date
+              <TableHead className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+                Name
               </TableHead>
-              <TableHead className="text-muted-foreground text-right">
-                Actions
+              <TableHead className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+                Property
+              </TableHead>
+              <TableHead className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+                Type
+              </TableHead>
+              <TableHead className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+                Status
+              </TableHead>
+              <TableHead className="text-muted-foreground text-xs font-medium uppercase tracking-wide text-right">
+                Date
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -224,68 +195,66 @@ export default function Leads() {
               filteredLeads.map((lead) => (
                 <TableRow
                   key={lead.id}
-                  className="border-border hover:bg-surface cursor-pointer transition-colors"
+                  className="border-border hover:bg-surface-elevated/50 cursor-pointer transition-colors"
                   onClick={() => navigate(`/leads/${lead.id}`)}
                 >
                   <TableCell className="text-text font-medium">
                     {lead.name}
                   </TableCell>
-                  <TableCell className="text-text">{lead.property}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {lead.property}
+                  </TableCell>
                   <TableCell>
                     <Badge
                       variant="outline"
-                      className={`${typeColor(lead.type)} border`}
+                      className={`${TYPE_STYLES[lead.type] ?? TYPE_STYLES["General Enquiry"]} border text-xs`}
                     >
                       {lead.type}
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge className={statusBadgeColor(lead.status)}>
+                    <Badge
+                      className={`${STATUS_STYLES[lead.status] ?? "bg-muted text-muted-foreground"} text-xs font-medium`}
+                    >
                       {statusLabel(lead.status)}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right text-muted-foreground">
+                  <TableCell className="text-right text-muted-foreground text-sm">
                     {lead.date}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-accent hover:bg-surface-elevated"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/leads/${lead.id}`);
-                      }}
-                    >
-                      View
-                    </Button>
                   </TableCell>
                 </TableRow>
               ))
             ) : (
-              <TableRow className="border-border hover:bg-transparent cursor-default">
-                <TableCell
-                  colSpan={6}
-                  className="text-center py-8 text-muted-foreground"
-                >
-                  No leads found
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={5} className="py-16">
+                  <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                    <div className="p-3 rounded-full bg-surface">
+                      <IconInbox size={24} stroke={1.5} />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-medium">No leads found</p>
+                      <p className="text-xs mt-0.5">
+                        Try adjusting your search or filters
+                      </p>
+                    </div>
+                  </div>
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
-      </div>
+      </Card>
 
-      {/* Pagination placeholder */}
+      {/* Pagination */}
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
+        <p className="text-xs text-muted-foreground tabular-nums">
           Showing {filteredLeads.length} of {allLeads.length} leads
         </p>
-        <div className="space-x-2">
+        <div className="flex gap-2">
           <Button
             variant="outline"
             size="sm"
-            className="border-border text-text hover:bg-surface-raised"
+            className="border-border text-muted-foreground h-8 text-xs"
             disabled
           >
             Previous
@@ -293,7 +262,7 @@ export default function Leads() {
           <Button
             variant="outline"
             size="sm"
-            className="border-border text-text hover:bg-surface-raised"
+            className="border-border text-muted-foreground h-8 text-xs"
             disabled
           >
             Next
