@@ -1,7 +1,6 @@
 import Elysia, { t } from "elysia";
 import { auth } from "../../auth/authPlugin";
 import { HttpError } from "../../auth/httpError";
-import { ANY_AGENCY } from "../../repositories/tenantScopedRepository";
 import { LeadsListService } from "./leadsListService";
 
 export const leadsListHandler = new Elysia()
@@ -21,10 +20,7 @@ export const leadsListHandler = new Elysia()
   .get(
     "/leads",
     async (ctx) => {
-      return ctx.leadsListService.listLeads(
-        ctx.auth.agencyId ?? ANY_AGENCY,
-        ctx.query,
-      );
+      return ctx.leadsListService.listLeads(ctx.auth.agencyId, ctx.query);
     },
     {
       query: t.Object({

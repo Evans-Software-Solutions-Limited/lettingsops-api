@@ -40,8 +40,8 @@ Work top to bottom. Each task is small enough to land in a single PR. Cross-cutt
 - [x] **F1.** Update every handler in `microservices/core/src/api.ts` to `.use(auth)` and read `agencyId` from context. _Landed in commit `f538070`. Auth mounted on all 7 business handlers (leadsCreate, leadsGet, leadsList, leadsCommunication, qualificationSubmit, viewingBook, viewingSlots). Webhook routes (emailIngestion, ElevenLabs) intentionally excluded (§1.4). All service methods now accept `agencyId: AgencyScope` as first param; handlers pass `ctx.auth.agencyId ?? ANY_AGENCY` (soft mode until F4)._
 - [x] **F2.** Update the dashboard (`packages/web`) to attach the JWT to its API calls via Eden Treaty's auth header config. _Landed in commit `734b095`. Added `packages/web/src/lib/auth.ts` (localStorage token store). Eden Treaty `onRequest` hook reads from localStorage per-request (not at module-init time, so token changes are picked up immediately). Login.tsx stores a dev-placeholder token on simulated login — TODO: replace with real `POST /auth/login` once auth endpoint lands._
 - [x] **F3.** Add an `/api-keys` admin endpoint pair (`POST` to issue, `GET` to list, `DELETE` to revoke). API-key-auth-only, scoped to the caller's agency. _Landed in commit `f7442b1`. Raw key returned once on creation (32 bytes → 64-char hex); stored as SHA-256 hash; `prefix` = first 8 chars for display. `requireAgencyId()` throws `HttpError(401)` for null. Ownership verified by `listForAgency` before revoke to prevent cross-agency key deletion. 12 service tests + 8 handler structural tests. Also fixed pre-existing `erasableSyntaxOnly` TS errors in `httpError.ts` / `jwtVerifier.ts` (Block D parameter properties, exposed by F2's web import chain)._
-- [ ] **F4.** Flip `AUTH_ENFORCED=true` in preprod. Confirm dashboard still works end-to-end. Then remove the sentinel handling in repositories (Block E1–E3).
-- [ ] **F5.** Flip `AUTH_ENFORCED=true` in production after 24 hours of preprod green.
+- [x] **F4.** ~Flip `AUTH_ENFORCED=true` in preprod~ — replaced. Decision (2026-05-28): align with `funds-distribution-platform` and drop the `AUTH_ENFORCED` flag entirely. Auth is always on; missing creds always → 401. This collapses the previous F4/F5 two-stage flip into a single strip-the-scaffolding PR: remove the env var from `infra/api.ts`, strip soft-mode + anonymous principal from `authPlugin.ts`, drop `?? ANY_AGENCY` from the 7 business handlers, and tighten their service signatures from `AgencyScope` to `string`. The `ANY_AGENCY` sentinel itself stays — it's now exclusively a webhook concession (see Block I). _Branch: `feat/spec-01-block-f-strip-auth-flag`._
+- [x] **F5.** ~Flip `AUTH_ENFORCED=true` in production after 24h preprod green~ — N/A. With the flag removed (F4), there's no production toggle to flip. CI/CD passes the stage on `sst deploy --stage staging` and auth is enforced uniformly.
 
 ## Block G — Observability
 
@@ -50,6 +50,17 @@ Work top to bottom. Each task is small enough to land in a single PR. Cross-cutt
 - [ ] **G3.** Add the five alarms per design §4.2.
 - [ ] **G4.** Add custom metric publication in the API for lead-creation counters (one `PutMetricData` per create, dimensions: source, agencyId).
 - [ ] **G5.** Verify alarms by deliberately failing one webhook in preprod; confirm SNS email arrives.
+
+## Block I — Webhook agency resolution (finally retire `ANY_AGENCY`)
+
+The Block F strip (above) removed the `AUTH_ENFORCED` flag and the soft-mode HTTP path. The `ANY_AGENCY` sentinel still exists, used by two webhook subsystems that cannot supply an `agencyId` at request time. This block resolves both lookups so the sentinel — and the column DEFAULT it relies on — can be removed.
+
+- [ ] **I1.** Add `agentAgencyMap` table (`agent_id PRIMARY KEY`, `agency_id NOT NULL`, audit columns). Migration + Drizzle schema + idempotency. Seed one mapping per existing ElevenLabs agent so the rollout is non-breaking.
+- [ ] **I2.** Add `AgentAgencyRepository.findAgencyForAgent(agentId)`. Tests cover hit, miss, multiple agents per agency.
+- [ ] **I3.** Update `elevenLabsWebhookService.ts` to resolve `agencyId` via `findAgencyForAgent(payload.agentId)` before constructing the `LeadRepository`. Reject with `HttpError(401)` if no mapping. Drop the `ANY_AGENCY` import.
+- [ ] **I4.** Unify the email-ingestion paths: both the Lambda and the HTTP Elysia wrapper resolve `agencyId` from the inbound recipient address (today the Lambda does this; the HTTP wrapper falls through to `ANY_AGENCY`). Share the resolver in `application/ingestion/email/agencyResolver.ts`. Drop `ANY_AGENCY` from `emailIngestionService.ts`.
+- [ ] **I5.** Delete `ANY_AGENCY`, `isAny()`, the bypass paths in `scopeWhere`/`writeAgencyId`, and the `AgencyScope` alias from `tenantScopedRepository.ts`. Collapse all repository constructors to `agencyId: string`. Drop the column DEFAULT in a follow-up migration once one preprod release has shipped with the lookups in place.
+- [ ] **I6.** Sweep the `tenantIsolation.test.ts` and `tenantScopedRepository.test.ts` blocks that test sentinel semantics — delete the suites that no longer apply, retain the cross-tenant isolation contract tests.
 
 ## Block H — Deploy pipelines
 

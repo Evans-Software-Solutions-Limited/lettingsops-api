@@ -1,7 +1,6 @@
 import Elysia from "elysia";
 import { LeadRepository } from "../../repositories/leadRepository";
 import { ViewingRepository } from "../../repositories/viewingRepository";
-import { type AgencyScope } from "../../repositories/tenantScopedRepository";
 
 export type BookViewingInput = {
   leadId: string;
@@ -13,7 +12,7 @@ export const ViewingBookService = new Elysia({
   name: "ViewingBookService",
 }).decorate("viewingBookService", {
   async bookViewing(
-    agencyId: AgencyScope,
+    agencyId: string,
     input: BookViewingInput,
   ): Promise<{
     viewingId: string;

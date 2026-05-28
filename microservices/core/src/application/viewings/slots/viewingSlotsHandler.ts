@@ -1,7 +1,6 @@
 import Elysia, { t } from "elysia";
 import { auth } from "../../auth/authPlugin";
 import { HttpError } from "../../auth/httpError";
-import { ANY_AGENCY } from "../../repositories/tenantScopedRepository";
 import { ViewingSlotsService } from "./viewingSlotsService";
 
 export const viewingSlotsHandler = new Elysia()
@@ -22,7 +21,7 @@ export const viewingSlotsHandler = new Elysia()
     "/viewings/slots",
     async (ctx) => {
       return ctx.viewingSlotsService.getAvailableSlots(
-        ctx.auth.agencyId ?? ANY_AGENCY,
+        ctx.auth.agencyId,
         ctx.query,
       );
     },

@@ -1,7 +1,6 @@
 import Elysia, { t } from "elysia";
 import { auth } from "../../auth/authPlugin";
 import { HttpError } from "../../auth/httpError";
-import { ANY_AGENCY } from "../../repositories/tenantScopedRepository";
 import { ViewingBookService } from "./viewingBookService";
 
 export const viewingBookHandler = new Elysia()
@@ -21,10 +20,7 @@ export const viewingBookHandler = new Elysia()
   .post(
     "/viewings/book",
     async (ctx) => {
-      return ctx.viewingBookService.bookViewing(
-        ctx.auth.agencyId ?? ANY_AGENCY,
-        ctx.body,
-      );
+      return ctx.viewingBookService.bookViewing(ctx.auth.agencyId, ctx.body);
     },
     {
       body: t.Object({

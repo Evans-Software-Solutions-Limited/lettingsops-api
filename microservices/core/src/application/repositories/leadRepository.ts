@@ -3,11 +3,12 @@
  *
  * Data access for Lead entities — backed by Neon (serverless Postgres) via Drizzle ORM.
  *
- * Tenant-scoped: every instance carries an `agencyId` (real UUID or the
- * `ANY_AGENCY` sentinel during the Block E → F migration window).
- * Reads filter by it; writes inject it. Sentinel-scoped instances
- * bypass the filter and rely on the column DEFAULT for writes — see
- * `TenantScopedRepository`.
+ * Tenant-scoped: every instance carries an `agencyId` (real UUID, or
+ * the `ANY_AGENCY` sentinel for the two webhook ingest paths that
+ * cannot resolve an agency at construction time — see
+ * `TenantScopedRepository`). Reads filter by it; writes inject it.
+ * Sentinel-scoped instances bypass the filter and rely on the column
+ * DEFAULT for writes.
  */
 import { and, count, eq } from "drizzle-orm";
 import { type Db, communicationLogs, leads } from "@lettingsops/db";

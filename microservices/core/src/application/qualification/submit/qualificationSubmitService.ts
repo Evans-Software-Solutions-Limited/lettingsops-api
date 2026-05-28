@@ -1,7 +1,6 @@
 import Elysia from "elysia";
 import { LeadRepository } from "../../repositories/leadRepository";
 import { QualificationRepository } from "../../repositories/qualificationRepository";
-import { type AgencyScope } from "../../repositories/tenantScopedRepository";
 
 export type QualificationAnswers = {
   moveInDate: string;
@@ -64,7 +63,7 @@ export const QualificationSubmitService = new Elysia({
   name: "QualificationSubmitService",
 }).decorate("qualificationSubmitService", {
   async submitQualification(
-    agencyId: AgencyScope,
+    agencyId: string,
     leadId: string,
     answers: QualificationAnswers,
   ): Promise<{

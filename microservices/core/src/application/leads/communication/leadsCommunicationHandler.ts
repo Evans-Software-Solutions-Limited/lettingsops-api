@@ -1,7 +1,6 @@
 import Elysia, { t } from "elysia";
 import { auth } from "../../auth/authPlugin";
 import { HttpError } from "../../auth/httpError";
-import { ANY_AGENCY } from "../../repositories/tenantScopedRepository";
 import { LeadsCommunicationService } from "./leadsCommunicationService";
 
 export const leadsCommunicationHandler = new Elysia()
@@ -22,7 +21,7 @@ export const leadsCommunicationHandler = new Elysia()
     "/leads/:id/communication",
     async (ctx) => {
       return ctx.leadsCommunicationService.getCommunication(
-        ctx.auth.agencyId ?? ANY_AGENCY,
+        ctx.auth.agencyId,
         ctx.params.id,
       );
     },

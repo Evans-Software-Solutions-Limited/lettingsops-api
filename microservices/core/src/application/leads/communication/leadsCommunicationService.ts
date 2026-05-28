@@ -2,10 +2,6 @@ import Elysia from "elysia";
 import { getDb } from "@lettingsops/db";
 import { and, eq } from "drizzle-orm";
 import { communicationLogs } from "@lettingsops/db";
-import {
-  ANY_AGENCY,
-  type AgencyScope,
-} from "../../repositories/tenantScopedRepository";
 
 type CommunicationLog = {
   id: string;
@@ -19,21 +15,17 @@ type CommunicationLog = {
 export const LeadsCommunicationService = new Elysia({
   name: "LeadsCommunicationService",
 }).decorate("leadsCommunicationService", {
-  async getCommunication(agencyId: AgencyScope, leadId: string) {
+  async getCommunication(agencyId: string, leadId: string) {
     const db = getDb();
-
-    const scopeClause =
-      agencyId !== ANY_AGENCY
-        ? eq(communicationLogs.agencyId, agencyId)
-        : undefined;
 
     const logs = await db
       .select()
       .from(communicationLogs)
       .where(
-        scopeClause
-          ? and(eq(communicationLogs.leadId, leadId), scopeClause)
-          : eq(communicationLogs.leadId, leadId),
+        and(
+          eq(communicationLogs.leadId, leadId),
+          eq(communicationLogs.agencyId, agencyId),
+        ),
       );
 
     const communications: CommunicationLog[] = logs.map((log) => {

@@ -4,17 +4,29 @@
  *
  * The contract: an instance constructed with `agencyId = "<uuid>"` will
  * filter every read by that agency and inject it into every write. An
- * instance constructed with the sentinel `ANY_AGENCY` ("__any__") bypasses
- * the filter for reads and lets the column's transitional DEFAULT
- * (`LEGACY_AGENCY_ID`, from Block E.0's migration) fill in writes.
+ * instance constructed with the sentinel `ANY_AGENCY` ("__any__")
+ * bypasses the filter for reads and lets the column's transitional
+ * DEFAULT (`LEGACY_AGENCY_ID`) fill in writes.
  *
- * The sentinel is gross by design. It exists so the migration phase can
- * land in slices without breaking CI at every commit — every callsite
- * that hasn't yet been threaded with a real `agencyId` (from Block D's
- * auth context, once Block F mounts `.use(auth)` on it) passes
- * `ANY_AGENCY` with a TODO. Remove the sentinel once Block F flips
- * `AUTH_ENFORCED=true` in production — grep for `ANY_AGENCY` to find
- * every removal site.
+ * Why the sentinel still exists: the HTTP layer no longer needs it —
+ * `.use(auth)` is mounted on every business handler and resolves a real
+ * `agencyId` before service code runs (auth is always on; missing creds
+ * → 401). The remaining users of `ANY_AGENCY` are the two webhook
+ * subsystems that legitimately have NO caller-supplied auth context:
+ *
+ *   - **Email ingestion** (`application/ingestion/email/`) — inbound
+ *     mail. The Lambda path resolves agencyId from the recipient
+ *     address; the HTTP wrapper currently falls through to the sentinel
+ *     until that resolver is shared.
+ *   - **ElevenLabs phone webhook** (`application/webhooks/elevenlabs/`)
+ *     — payload carries `agentId`, not `agencyId`. The
+ *     `agentId → agencyId` lookup table is the planned follow-up that
+ *     finally retires the sentinel.
+ *
+ * Both follow-ups are tracked in `.kiro/specs/01-platform-hardening/
+ * tasks.md` (Block I — Webhook agency resolution). Until then the
+ * sentinel must stay; grep for `ANY_AGENCY` to find every escape-hatch
+ * callsite.
  *
  * Why a base class rather than a method-level argument: the constructor
  * approach means a single misplaced `eq` won't leak data, because every
@@ -28,8 +40,10 @@ import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { type Db, getDb } from "@lettingsops/db";
 
 /**
- * Sentinel value for callers that don't yet have a real `agencyId`.
- * See the class header for the migration story.
+ * Sentinel value for webhook callers that cannot supply an `agencyId`
+ * at construction time (see the class header — email ingestion and
+ * ElevenLabs phone). HTTP handlers MUST NOT use this sentinel; the auth
+ * plugin always resolves a real `agencyId` before service code runs.
  *
  * Type-wise this is a plain string so it can be passed anywhere an
  * `agencyId` is expected. The runtime check happens in the helper
@@ -70,9 +84,9 @@ export abstract class TenantScopedRepository {
   /**
    * Return the value to insert into the `agency_id` column on writes.
    * Returns `undefined` when the instance is sentinel-scoped — the
-   * column's transitional DEFAULT (LEGACY_AGENCY_ID) will then fill in.
-   * Block E.final removes that DEFAULT, at which point every callsite
-   * must construct with a real agencyId.
+   * column's transitional DEFAULT (LEGACY_AGENCY_ID) fills in. Once
+   * Block I lands the webhook agency-resolution lookups, the DEFAULT
+   * and this branch can be removed together.
    */
   protected writeAgencyId(): string | undefined {
     return this.isAny() ? undefined : this.agencyId;
