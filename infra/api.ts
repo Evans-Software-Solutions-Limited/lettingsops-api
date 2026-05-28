@@ -8,7 +8,9 @@ import {
 
 export const lettingsAPI = new sst.aws.ApiGatewayV2("lettings-api");
 
-lettingsAPI.route("$default", {
+// Captured so `infra/observability.ts` can attach Lambda alarms and
+// dashboards to the underlying function via `apiRoute.nodes.function.name`.
+export const apiRoute = lettingsAPI.route("$default", {
   handler: "microservices/core/src/api.handler",
   environment: {
     DATABASE_URL: databaseUrl.value,
