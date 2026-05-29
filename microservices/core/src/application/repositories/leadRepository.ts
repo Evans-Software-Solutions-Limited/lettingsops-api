@@ -17,6 +17,7 @@ import {
   TenantScopedRepository,
   filterPredicates,
 } from "./tenantScopedRepository";
+import { publishLeadCreated } from "../metrics/cloudWatchMetrics";
 
 export type LeadStatus =
   | "NEW"
@@ -113,6 +114,14 @@ export class LeadRepository extends TenantScopedRepository {
       .returning();
 
     if (!row) throw new Error("Failed to create lead — no row returned");
+
+    // Publish the `LeadsCreated` CloudWatch metric. Done here, not in
+    // the calling service, so every ingestion path (HTTP, email
+    // Lambda, ElevenLabs phone webhook) gets counted via the single
+    // choke point. Fire-and-forget — publish failures (IAM, throttle,
+    // network) are swallowed inside `publishLeadCreated`.
+    void publishLeadCreated(input.source);
+
     return rowToLead(row);
   }
 

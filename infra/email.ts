@@ -36,21 +36,35 @@ export const emailBucket = new sst.aws.Bucket("LettingsOpsEmailBucket", {
   ),
 });
 
-// S3 event notification → Lambda on ObjectCreated
+// Email-processor Lambda — declared as an explicit `sst.aws.Function` so
+// `infra/observability.ts` can target it for alarms and dashboards via
+// `emailProcessor.nodes.function.name`. The bucket notification below
+// then wires this function as the S3 ObjectCreated handler.
+export const emailProcessor = new sst.aws.Function(
+  "LettingsOpsEmailProcessor",
+  {
+    handler: "microservices/core/src/emailProcessor.handler",
+    // `cloudwatch:PutMetricData` is required by `cloudWatchMetrics.ts`
+    // (the `LeadsCreated` publisher called from `LeadRepository.create`,
+    // which this Lambda invokes when an inbound email is parsed into
+    // a lead). See the matching grant on `apiRoute` in `./api.ts`.
+    permissions: [{ actions: ["cloudwatch:PutMetricData"], resources: ["*"] }],
+    environment: {
+      DATABASE_URL: databaseUrl.value,
+      EMAIL_DOMAIN: emailDomain.value,
+      EMAIL_BUCKET: emailBucket.name,
+      OPENAI_API_KEY: openAIKey.value,
+    },
+    link: [emailBucket],
+  },
+);
+
+// S3 event notification → email processor Lambda on ObjectCreated.
 emailBucket.notify({
   notifications: [
     {
       name: "OnEmailReceived",
-      function: {
-        handler: "microservices/core/src/emailProcessor.handler",
-        environment: {
-          DATABASE_URL: databaseUrl.value,
-          EMAIL_DOMAIN: emailDomain.value,
-          EMAIL_BUCKET: emailBucket.name,
-          OPENAI_API_KEY: openAIKey.value,
-        },
-        link: [emailBucket],
-      },
+      function: emailProcessor.arn,
       events: ["s3:ObjectCreated:*"],
     },
   ],
