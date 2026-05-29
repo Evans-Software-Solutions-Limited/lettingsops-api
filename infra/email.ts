@@ -44,6 +44,11 @@ export const emailProcessor = new sst.aws.Function(
   "LettingsOpsEmailProcessor",
   {
     handler: "microservices/core/src/emailProcessor.handler",
+    // `cloudwatch:PutMetricData` is required by `cloudWatchMetrics.ts`
+    // (the `LeadsCreated` publisher called from `LeadRepository.create`,
+    // which this Lambda invokes when an inbound email is parsed into
+    // a lead). See the matching grant on `apiRoute` in `./api.ts`.
+    permissions: [{ actions: ["cloudwatch:PutMetricData"], resources: ["*"] }],
     environment: {
       DATABASE_URL: databaseUrl.value,
       EMAIL_DOMAIN: emailDomain.value,

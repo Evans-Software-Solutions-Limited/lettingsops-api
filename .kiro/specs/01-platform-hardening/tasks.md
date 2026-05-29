@@ -48,7 +48,7 @@ Work top to bottom. Each task is small enough to land in a single PR. Cross-cutt
 - [ ] **G1.** Add SST secret `LettingsOpsAlarmEmail`. Add `LettingsOpsAlarms` SNS topic in `infra/observability.ts` with email subscription.
 - [ ] **G2.** Add the three CloudWatch dashboards per design §4.1.
 - [ ] **G3.** Add the five alarms per design §4.2.
-- [ ] **G4.** Add custom metric publication in the API for lead-creation counters (one `PutMetricData` per create, dimensions: source, agencyId).
+- [ ] **G4.** Add custom metric publication in the API for lead-creation counters (one `PutMetricData` per create, dimension: **source only**). _Deviation from the original "source + agencyId" plan: per-tenant CloudWatch dimensions multiply billed custom metrics by `N agencies × 4 sources` (~$0.30/metric/month, 15-month retention tail) — easily £100s/month at modest scale and largely unread, since per-tenant lead counts are better served by a `SELECT count(*) FROM leads WHERE agency_id = ?` against the operational DB. Recorded after Inspector Brad's medium-severity finding on PR #39._ The publish lives in `LeadRepository.create` so all four ingestion paths (HTTP `POST /leads`, email Lambda, ElevenLabs phone webhook, future webhooks) are counted via a single choke point.
 - [ ] **G5.** Verify alarms by deliberately failing one webhook in preprod; confirm SNS email arrives.
 
 ## Block I — Webhook agency resolution (finally retire `ANY_AGENCY`)

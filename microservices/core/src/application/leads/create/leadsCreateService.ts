@@ -1,6 +1,5 @@
 import Elysia from "elysia";
 import { LeadRepository } from "../../repositories/leadRepository";
-import { publishLeadCreated } from "../../metrics/cloudWatchMetrics";
 
 export const LeadsCreateService = new Elysia({
   name: "LeadsCreateService",
@@ -17,18 +16,14 @@ export const LeadsCreateService = new Elysia({
     },
   ): Promise<{ id: string; status: string; createdAt: string }> {
     const repo = new LeadRepository(undefined, agencyId);
-    const source = input.source ?? "manual";
-    const lead = await repo.create({
+    // `LeadsCreated` CloudWatch metric is published inside
+    // `repo.create` so every ingestion path (HTTP, email, phone) is
+    // counted through the same choke point — don't add a publish call
+    // here too or webhook-vs-HTTP comparisons will be skewed.
+    return repo.create({
       ...input,
       status: "NEW",
-      source,
+      source: input.source ?? "manual",
     });
-    // Fire-and-forget custom CloudWatch metric. The Ingestion dashboard
-    // and any future "leads per source" alerting read from this.
-    // `publishLeadCreated` swallows its own errors, so the await chain
-    // never sees a CloudWatch failure — `void` here just makes
-    // intentional-non-await readable.
-    void publishLeadCreated(source, agencyId);
-    return lead;
   },
 });

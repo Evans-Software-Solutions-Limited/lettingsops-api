@@ -34,7 +34,7 @@ describe("publishLeadCreated", () => {
     const fake = makeFakeClient();
     __setCloudWatchClientForTests(fake as unknown as CloudWatchClient);
 
-    await publishLeadCreated("email", "agency-uuid-1");
+    await publishLeadCreated("email");
 
     expect(fake.send).toHaveBeenCalledTimes(1);
     const cmd = fake.send.mock.calls[0]?.[0];
@@ -46,23 +46,21 @@ describe("publishLeadCreated", () => {
     expect(input.MetricData?.[0]?.Unit).toBe("Count");
   });
 
-  it("dimensions the metric by source and agencyId", async () => {
+  it("dimensions the metric by source only (no per-tenant cost explosion)", async () => {
+    // Regression for Inspector Brad's medium-severity finding on
+    // PR #39: a per-tenant dimension multiplies billed custom metrics
+    // by every active agency. Source-only stays bounded at 4 metrics
+    // total. If a future PR wants per-tenant lead counts, they go
+    // through a DB query, not a new dimension here.
     const fake = makeFakeClient();
     __setCloudWatchClientForTests(fake as unknown as CloudWatchClient);
 
-    await publishLeadCreated("phone", "agency-uuid-2");
+    await publishLeadCreated("phone");
 
     const cmd = fake.send.mock.calls[0]?.[0] as PutMetricDataCommand;
     const dims = cmd.input.MetricData?.[0]?.Dimensions ?? [];
-    expect(dims).toEqual(
-      expect.arrayContaining([
-        { Name: "source", Value: "phone" },
-        { Name: "agencyId", Value: "agency-uuid-2" },
-      ]),
-    );
-    // Two dimensions and no more — we deliberately avoid PII like
-    // lead.id or lead.email here.
-    expect(dims).toHaveLength(2);
+    expect(dims).toEqual([{ Name: "source", Value: "phone" }]);
+    expect(dims).toHaveLength(1);
   });
 
   it("stamps the data point with a current timestamp", async () => {
@@ -70,7 +68,7 @@ describe("publishLeadCreated", () => {
     __setCloudWatchClientForTests(fake as unknown as CloudWatchClient);
     const before = Date.now();
 
-    await publishLeadCreated("manual", "agency-uuid-3");
+    await publishLeadCreated("manual");
 
     const cmd = fake.send.mock.calls[0]?.[0] as PutMetricDataCommand;
     const ts = cmd.input.MetricData?.[0]?.Timestamp as Date;
@@ -87,9 +85,7 @@ describe("publishLeadCreated", () => {
     );
     __setCloudWatchClientForTests(fake as unknown as CloudWatchClient);
 
-    await expect(
-      publishLeadCreated("email", "agency-uuid-1"),
-    ).resolves.toBeUndefined();
+    await expect(publishLeadCreated("email")).resolves.toBeUndefined();
     expect(fake.send).toHaveBeenCalledTimes(1);
   });
 
@@ -97,8 +93,8 @@ describe("publishLeadCreated", () => {
     const fake = makeFakeClient();
     __setCloudWatchClientForTests(fake as unknown as CloudWatchClient);
 
-    await publishLeadCreated("portal", "agency-uuid-1");
-    await publishLeadCreated("email", "agency-uuid-1");
+    await publishLeadCreated("portal");
+    await publishLeadCreated("email");
 
     expect(fake.send).toHaveBeenCalledTimes(2);
     // Both calls hit the same client instance — no test-double swap in
