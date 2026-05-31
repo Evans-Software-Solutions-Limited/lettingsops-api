@@ -8,8 +8,19 @@ import {
 
 export const lettingsAPI = new sst.aws.ApiGatewayV2("lettings-api");
 
-lettingsAPI.route("$default", {
+// Captured so `infra/observability.ts` can attach Lambda alarms and
+// dashboards to the underlying function via `apiRoute.nodes.function.name`.
+export const apiRoute = lettingsAPI.route("$default", {
   handler: "microservices/core/src/api.handler",
+  // `cloudwatch:PutMetricData` is required by `cloudWatchMetrics.ts`
+  // (the `LeadsCreated` custom metric publisher called from
+  // `LeadRepository.create`). SST v3's default execution role only
+  // grants `AWSLambdaBasicExecutionRole` (Logs only); without this
+  // every publish would `AccessDeniedException`, get swallowed by the
+  // publisher's catch, and the Ingestion dashboard would be silently
+  // empty in production. CloudWatch PutMetricData doesn't support
+  // resource-level permissions, hence `resources: ["*"]`.
+  permissions: [{ actions: ["cloudwatch:PutMetricData"], resources: ["*"] }],
   environment: {
     DATABASE_URL: databaseUrl.value,
     OPENAI_API_KEY: openAIKey.value,

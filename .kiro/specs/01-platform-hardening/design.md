@@ -166,7 +166,7 @@ Defined in `infra/observability.ts`. One dashboard per concern:
 - **Lambda health** — invocations, errors, p50/p95/p99 duration for `api.handler`, `emailProcessor.handler`, and (when added) `webhook.handler`.
 - **Email reputation** — SES SendEmail success vs. failure, bounce rate, complaint rate.
 
-Metrics are CloudWatch-native (Lambda and SES already emit) plus a small set of custom metrics published from the API via `PutMetricData` for the lead-creation counters.
+Metrics are CloudWatch-native (Lambda and SES already emit) plus a small set of custom metrics published from the application via `PutMetricData` for the lead-creation counters. The `LeadsCreated` metric carries a `source` dimension only — a per-tenant `agencyId` dimension was considered and rejected after Inspector Brad's review of PR #39 (`N agencies × 4 sources` priced custom metrics with a 15-month retention tail, largely unread). Per-tenant lead counts come from a DB query when needed, not a CloudWatch dimension. The publish lives in `LeadRepository.create` so every ingestion path (HTTP, email Lambda, ElevenLabs phone webhook) goes through one choke point.
 
 ### 4.2 Alarms
 

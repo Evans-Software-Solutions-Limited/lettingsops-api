@@ -45,6 +45,20 @@ const createChainableDb = () => {
   return chain;
 };
 
+// Mock the CloudWatch metrics publisher globally so tests never touch
+// the real AWS SDK (no creds in CI, no network calls). The publisher
+// is fire-and-forget by design; per-test assertions on its calls should
+// import and unmock it locally.
+vi.mock("./src/application/metrics/cloudWatchMetrics", async () => {
+  const actual = await vi.importActual<
+    typeof import("./src/application/metrics/cloudWatchMetrics")
+  >("./src/application/metrics/cloudWatchMetrics");
+  return {
+    ...actual,
+    publishLeadCreated: vi.fn().mockResolvedValue(undefined),
+  };
+});
+
 // Mock the database client globally
 vi.mock("@lettingsops/db", () => ({
   getDb: vi.fn(() => createChainableDb()),

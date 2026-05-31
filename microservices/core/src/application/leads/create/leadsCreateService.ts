@@ -16,6 +16,10 @@ export const LeadsCreateService = new Elysia({
     },
   ): Promise<{ id: string; status: string; createdAt: string }> {
     const repo = new LeadRepository(undefined, agencyId);
+    // `LeadsCreated` CloudWatch metric is published inside
+    // `repo.create` so every ingestion path (HTTP, email, phone) is
+    // counted through the same choke point — don't add a publish call
+    // here too or webhook-vs-HTTP comparisons will be skewed.
     return repo.create({
       ...input,
       status: "NEW",
