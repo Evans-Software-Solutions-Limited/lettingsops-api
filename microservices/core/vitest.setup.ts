@@ -92,4 +92,11 @@ vi.mock("@lettingsops/db", () => ({
     revokedAt: {},
     createdAt: {},
   },
+  agentAgencyMap: {
+    agentId: {},
+    agencyId: {},
+    notes: {},
+    createdAt: {},
+    updatedAt: {},
+  },
 }));

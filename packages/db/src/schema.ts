@@ -233,6 +233,47 @@ export const apiKeys = pgTable("api_keys", {
     .defaultNow(),
 });
 
+// ─── Agent → Agency map ───────────────────────────────────────────────────────
+
+/**
+ * Maps an external "agent" identifier (today: ElevenLabs `agent_id` from
+ * the phone-call webhook) to an internal `agency_id`. Lets webhook
+ * handlers that receive an agent_id resolve the owning tenant without
+ * the caller needing to supply it.
+ *
+ * This is a META-table — it spans tenants by design — so it intentionally
+ * does NOT extend `TenantScopedRepository`. Security implication: read
+ * access leaks the agent_id → agency_id mapping (i.e. enumerating which
+ * ElevenLabs agents belong to which tenant). The mitigation is that
+ * only server-side webhook code reads this table; it must never be
+ * surfaced through the public API.
+ *
+ * `agent_id` is `text` (not `uuid`) because the upstream identifier
+ * shape is provider-defined (e.g. ElevenLabs uses opaque short strings
+ * like `agent_xyz`). Future providers can use the same table by
+ * convention; if a second provider's ID space ever collides with
+ * ElevenLabs' (vanishingly unlikely), we'll add a `provider` column
+ * and bump the PK.
+ *
+ * Block I (`.kiro/specs/01-platform-hardening/tasks.md`) — added in
+ * I-PR-A as the foundation for retiring the `ANY_AGENCY` sentinel from
+ * `application/webhooks/elevenlabs/`. The wiring lands in I-PR-C.
+ */
+export const agentAgencyMap = pgTable("agent_agency_map", {
+  agentId: text("agent_id").primaryKey(),
+  agencyId: uuid("agency_id")
+    .notNull()
+    .references(() => agencies.id, { onDelete: "cascade" }),
+  /** Optional operator-facing label, e.g. "Reapit demo agent". */
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 // ─── Agency Required Fields ───────────────────────────────────────────────────
 
 export const agencyRequiredFields = pgTable(
@@ -362,6 +403,8 @@ export type EstateAgentRow = typeof estateAgents.$inferSelect;
 export type NewEstateAgentRow = typeof estateAgents.$inferInsert;
 export type ApiKeyRow = typeof apiKeys.$inferSelect;
 export type NewApiKeyRow = typeof apiKeys.$inferInsert;
+export type AgentAgencyMapRow = typeof agentAgencyMap.$inferSelect;
+export type NewAgentAgencyMapRow = typeof agentAgencyMap.$inferInsert;
 export type AgencyRequiredFieldRow = typeof agencyRequiredFields.$inferSelect;
 export type NewAgencyRequiredFieldRow =
   typeof agencyRequiredFields.$inferInsert;
