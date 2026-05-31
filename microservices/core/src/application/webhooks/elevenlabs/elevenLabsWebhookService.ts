@@ -1,7 +1,8 @@
 import Elysia from "elysia";
 import { getDb } from "@lettingsops/db";
 import { LeadRepository } from "../../repositories/leadRepository";
-import { ANY_AGENCY } from "../../repositories/tenantScopedRepository";
+import { AgentAgencyRepository } from "../../auth/agentAgencyRepository";
+import { HttpError } from "../../auth/httpError";
 import { logger } from "@lettingsops/api-utils/logger";
 
 interface ElevenLabsPayload {
@@ -27,26 +28,40 @@ export const ElevenLabsWebhookService = new Elysia({
   name: "ElevenLabsWebhookService",
 }).decorate("elevenLabsWebhookService", {
   async handleWebhook(payload: ElevenLabsPayload) {
-    // Note on agencyId: ElevenLabs payloads carry `agentId`, not `agencyId`.
-    // The agentId → agencyId mapping lands with the tenant-scoping refactor
-    // in Block E of spec-01-platform-hardening. Until then, logs here carry
-    // `callId` + `agentId` as the primary correlation fields; downstream
-    // `agencyId` enrichment will be added once the agent-to-agency lookup
-    // exists. See `.kiro/specs/01-platform-hardening/tasks.md` E1–E4.
+    // Resolve the owning agency from the ElevenLabs `agentId` via the
+    // `agent_agency_map` table (Block I-PR-A added the table; I-PR-C
+    // wires it here). An unknown agentId — i.e. one that hasn't been
+    // seeded into the map — throws `HttpError(401)` so the upstream
+    // ElevenLabs caller gets a definitive 4xx and stops retrying. The
+    // ElevenLabsWebhookFailures alarm (Block G) catches sustained
+    // misses operationally.
+    const db = getDb();
+    const agencyId = await new AgentAgencyRepository(db).findAgencyForAgent(
+      payload.agentId,
+    );
+    if (!agencyId) {
+      // Log BEFORE throwing so the agentId is in the audit trail even
+      // if the .onError handler swallows the message. PII-safe — the
+      // agentId is an opaque provider identifier, not user data.
+      logger.warn("Unknown ElevenLabs agent — no agency mapping", {
+        callId: payload.callId,
+        agentId: payload.agentId,
+      });
+      throw new HttpError(
+        401,
+        "Unknown agent — no agency mapping for this ElevenLabs agent",
+      );
+    }
+
     logger.info("ElevenLabs webhook received", {
       callId: payload.callId,
       agentId: payload.agentId,
+      agencyId,
       intent: payload.intent,
       transcriptTurns: payload.transcript?.length ?? 0,
     });
 
-    const db = getDb();
-    // ElevenLabs payloads carry `agentId`, not `agencyId`. The
-    // agentId → agencyId mapping lands in a later block (tracked in
-    // C4's note in tasks.md). Until then this webhook is tenant-blind
-    // and falls through the ANY_AGENCY sentinel.
-    // TODO(F1/agent-mapping): resolve agencyId from agentId.
-    const leadRepo = new LeadRepository(db, ANY_AGENCY);
+    const leadRepo = new LeadRepository(db, agencyId);
 
     const extractedFields = payload.extractedFields || {};
     const email =
