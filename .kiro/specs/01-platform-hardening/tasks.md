@@ -66,15 +66,15 @@ The Block F strip (above) removed the `AUTH_ENFORCED` flag and the soft-mode HTT
 
 ## Block H — Deploy pipelines
 
-- [ ] **H1.** Verify `staging-deploy.yml` triggers on push to `main` and uses `AWS_ROLE_ARN_PREPROD`. Patch if not.
-- [ ] **H2.** Verify `deploy-production.yml` triggers only on Release Please release-publish. Patch if not.
-- [ ] **H3.** Update `docs/next-steps-deployments.md` with any divergence from doc → reality found during H1/H2.
-- [ ] **H4.** Document the secret list (`AWS_ROLE_ARN_*`, `LettingsOpsJwtSigningKey`, `LettingsOpsAlarmEmail`) in `docs/secrets.md`.
+- [x] **H1.** `staging-deploy.yml` verified: triggers on push to `main` (+ `workflow_dispatch`), guards against release-please commit messages so it doesn't race the production workflow, full PR gate runs before `sst deploy --stage staging`, concurrency-locked on `sst-staging`. **Naming divergence:** workflow uses the stage name `staging` and the role secret `AWS_ROLE_ARN_STAGING` rather than the spec/doc's "preprod" / `AWS_ROLE_ARN_PREPROD`. Implementation is the source of truth; spec language treated as synonymous. _Captured in `docs/next-steps-deployments.md` §5 and `docs/secrets.md`._
+- [x] **H2.** `deploy-production.yml` verified: triggers on `release: published` (Release Please publishes a tagged GitHub Release on release-PR merge) and `workflow_dispatch` with optional `ref` input. Checkout pins to the release tag. Uses `AWS_ROLE_ARN_PRODUCTION`, full gate, concurrency-locked on `sst-production`. No patches needed.
+- [x] **H3.** `docs/next-steps-deployments.md` updated end-to-end: §1.1 secrets table now lists `AWS_ROLE_ARN_STAGING` (not `_PREPROD`) plus the previously-undocumented `DATABASE_URL` GitHub secret used by the pre-deploy `db:push` step; §3 rewritten from "Workflows to Add" to a per-workflow reference for staging / production / Release Please as they actually exist; §5 stage-names table updated (`pr-{number}` removed — the PR env workflow was never built); §7.1 required-checks list updated to match the actual `pr-checks.yml` and `claude-review.yml` job names. The known divergence and the missing PR-env workflows are called out explicitly so the next reader can't miss them.
+- [x] **H4.** `docs/secrets.md` created as the canonical inventory: 9 SST-managed secrets (database, email domain, OpenAI, 2 × ElevenLabs, JWT signing, alarm email, 2 × webhook secrets) and 4 GitHub Actions secrets (2 × AWS role ARN + `DATABASE_URL` + the reserved-but-unused `AWS_ROLE_ARN_PR`) + the `AWS_REGION` variable. Each row carries purpose, the consuming Lambda env var, the block / PR that introduced it, and rotation guidance. Cross-references `next-steps-deployments.md` for the first-time setup checklist.
 
 ## Acceptance checklist
 
-- [ ] All boxes above ticked.
-- [ ] `bun run prettier:check && bun run typecheck && bun run lint && bun run build && bun run test:unit` green.
-- [ ] Coverage report shows 90%+ on application and repositories code.
-- [ ] Preprod deploy of `feat/spec-01-platform-hardening` demonstrates: rejected unauthenticated request, accepted authenticated request, cross-tenant leak attempt returns empty, alarm email received from a synthetic failure.
-- [ ] Spec's `requirements.md` definition of done is satisfied.
+- [ ] All boxes above ticked. _Remaining: **A3** (branch protection — blocked on org plan upgrade), **G5** (alarm smoke test — requires staging deploy). Everything else is done as of Block H._
+- [x] `bun run prettier:check && bun run typecheck && bun run lint && bun run build && bun run test:unit` green. _Holds as of the I-PR-D merge (409 tests passing)._
+- [x] Coverage report shows 90%+ on application and repositories code. _Enforced by the vitest config's `thresholds: { lines: 90, functions: 90, branches: 90, statements: 90 }` and verified on every PR by the `Unit Tests & Coverage (90% minimum)` job._
+- [ ] Staging deploy of the platform-hardening work demonstrates: rejected unauthenticated request, accepted authenticated request, cross-tenant leak attempt returns empty, alarm email received from a synthetic failure. _Pending — happens during the G5 staging smoke test._
+- [ ] Spec's `requirements.md` definition of done is satisfied. _Final sign-off pending the staging smoke test._
