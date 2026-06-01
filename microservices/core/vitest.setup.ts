@@ -1,5 +1,21 @@
 import { vi } from "vitest";
 
+// `emailIngestionHandler` reads `EMAIL_WEBHOOK_SECRET` on every request
+// (Block I-PR-B+C 2nd-sweep fix). Set a deterministic test value once
+// at file-load time so every test file sees the same string; handler
+// tests then include `x-webhook-secret: <this value>` to pass the
+// guard. Tests that want to exercise the missing-env path delete it
+// in a beforeEach and restore in afterEach.
+process.env.EMAIL_WEBHOOK_SECRET = "test-webhook-secret-do-not-use-in-prod";
+
+// `elevenLabsWebhookHandler` reads `ELEVENLABS_WEBHOOK_SECRET` and
+// validates an HMAC signature over the raw body (3rd-sweep fix).
+// Service-level tests don't go through the handler so they're
+// unaffected; handler-level tests compute a real signature using this
+// value via the helper in `__tests__/elevenLabsWebhookHandler.integration.test.ts`.
+process.env.ELEVENLABS_WEBHOOK_SECRET =
+  "test-elevenlabs-secret-do-not-use-in-prod";
+
 // Create a mock database client that handles drizzle-orm queries
 const createChainableDb = () => {
   // Mock lead object for returns

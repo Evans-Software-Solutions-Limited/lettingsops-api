@@ -15,3 +15,31 @@ export const jwtSigningKey = new sst.Secret("LettingsOpsJwtSigningKey");
 // confirmation email on first deploy — the recipient must click it
 // once before notifications start flowing.
 export const alarmEmail = new sst.Secret("LettingsOpsAlarmEmail");
+
+// Shared secret for the `POST /webhooks/email` endpoint. Block I-PR-B
+// landed the agency-resolution wiring but left the endpoint
+// unauthenticated; without this guard an attacker who knows an
+// agency's inbound address can inject leads under that tenant's id.
+// Set per stage with `sst secret set LettingsOpsEmailWebhookSecret <hex>`
+// (suggested generation: `openssl rand -hex 32`). Forwarders must
+// include the value in an `x-webhook-secret` header on every call —
+// missing/wrong → 401, missing env → 500 (operator misconfig). Block
+// I-PR-B+C 2nd-sweep fix; see Inspector Brad's HIGH finding on PR #41.
+export const emailWebhookSecret = new sst.Secret(
+  "LettingsOpsEmailWebhookSecret",
+);
+
+// HMAC signing secret for the `POST /webhooks/elevenlabs` endpoint.
+// I-PR-C wired the `agentId → agency.id` lookup, which means an
+// attacker-supplied `agentId` now resolves to a real tenant — same
+// amplification as the email side. Set the matching secret in the
+// ElevenLabs dashboard (Webhooks → Signing secret) and via
+// `sst secret set LettingsOpsElevenLabsWebhookSecret <hex>` per stage.
+// ElevenLabs sends `ElevenLabs-Signature: t=<unix>,v0=<hex>` where the
+// hex is HMAC-SHA256 of `${t}.${rawBody}`; the handler validates
+// timestamp tolerance (±5 min) and the HMAC in constant time before
+// schema parse. Block I-PR-B+C 3rd-sweep fix; see Inspector Brad's
+// MEDIUM finding on PR #41 (signature parity with the email path).
+export const elevenLabsWebhookSecret = new sst.Secret(
+  "LettingsOpsElevenLabsWebhookSecret",
+);

@@ -2,6 +2,20 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ElevenLabsWebhookService } from "../elevenLabsWebhookService";
 import type { Db } from "@lettingsops/db";
 
+const AGENCY_ID = "agency-test-1";
+
+// Mock the agent → agency lookup. Block I-PR-C wires this into the
+// service; by default we return AGENCY_ID for any agentId so every
+// existing test case continues to exercise the lead-creation logic.
+// The "unknown agent → 401" case (added below) overrides per-test
+// with `mockResolvedValueOnce(null)`.
+const mockFindAgencyForAgent = vi.fn();
+vi.mock("../../../auth/agentAgencyRepository", () => ({
+  AgentAgencyRepository: vi.fn(() => ({
+    findAgencyForAgent: mockFindAgencyForAgent,
+  })),
+}));
+
 // ─── Mock DB helper ───────────────────────────────────────────────────────────
 
 /**
@@ -73,6 +87,9 @@ vi.mock("@lettingsops/db", async (importOriginal) => {
 describe("ElevenLabsWebhookService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: every agentId resolves to AGENCY_ID. Tests that need
+    // the miss/401 path override with `mockResolvedValueOnce(null)`.
+    mockFindAgencyForAgent.mockResolvedValue(AGENCY_ID);
     mockDb = {
       insert: vi.fn(() => mockChain([mockLeadRow])),
       select: vi.fn(() => mockChain([mockLeadRow])),
@@ -245,6 +262,55 @@ describe("ElevenLabsWebhookService", () => {
 
     // insert should not be called when transcript is empty
     expect(mockDb.insert).not.toHaveBeenCalled();
+  });
+
+  it("throws HttpError(401) when the agent has no agency mapping", async () => {
+    // Regression for Block I-PR-C: unknown agentId must surface as
+    // 401, not a silent ANY_AGENCY-scoped lead create. The handler's
+    // .onError block maps this to a 401 response so the upstream
+    // ElevenLabs caller stops retrying.
+    mockFindAgencyForAgent.mockResolvedValueOnce(null);
+
+    const payload = {
+      callId: "call-unknown",
+      agentId: "agent_not_in_map",
+      intent: "other" as const,
+      transcript: [],
+    };
+
+    await expect(
+      ElevenLabsWebhookService.decorator.elevenLabsWebhookService.handleWebhook(
+        payload,
+      ),
+    ).rejects.toMatchObject({
+      status: 401,
+      message: expect.stringContaining("Unknown agent"),
+    });
+
+    // Crucially: no lead was created with ANY_AGENCY fallback.
+    expect(mockDb.insert).not.toHaveBeenCalled();
+  });
+
+  it("uses the resolved agencyId for the LeadRepository, not ANY_AGENCY", async () => {
+    // Regression for Block I-PR-C: the resolved agencyId must reach
+    // LeadRepository. We can't directly observe LeadRepository's
+    // constructor args via the chainable db mock, but we can verify
+    // the agent → agency lookup was performed with the right agentId.
+    mockFindAgencyForAgent.mockResolvedValueOnce("agency-from-map-7");
+
+    const payload = {
+      callId: "call-456",
+      agentId: "agent_xyz_001",
+      intent: "viewing_enquiry" as const,
+      extractedFields: { email: "john@example.com" },
+      transcript: [],
+    };
+
+    await ElevenLabsWebhookService.decorator.elevenLabsWebhookService.handleWebhook(
+      payload,
+    );
+
+    expect(mockFindAgencyForAgent).toHaveBeenCalledWith("agent_xyz_001");
   });
 
   it("should store metadata including call duration", async () => {

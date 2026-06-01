@@ -4,10 +4,10 @@ import PostalMime from "postal-mime";
 import OpenAI from "openai";
 import { processConversationState } from "./application/conversation/conversationStateService";
 import { processEmail } from "./application/ingestion/email/emailIngestionService";
+import { resolveAgencyFromInboundEmail } from "./application/ingestion/email/agencyResolver";
 import { AutoReplyService } from "./application/reply/autoReplyService";
 import type { ConversationTypeEnum } from "@lettingsops/db";
-import { getDb, agencies } from "@lettingsops/db";
-import { eq } from "drizzle-orm";
+import { getDb } from "@lettingsops/db";
 import {
   logger,
   formatError,
@@ -55,16 +55,13 @@ export const handler = async (event: S3Event): Promise<void> => {
       return;
     }
 
-    // 3. Resolve agencyId from recipient address
+    // 3. Resolve agencyId from recipient address via the shared
+    //    resolver (also used by the HTTP `POST /webhooks/email` path
+    //    after Block I-PR-B). Returns null on no match.
     const db = getDb();
-    const agency = await db
-      .select()
-      .from(agencies)
-      .where(eq(agencies.inboundEmail, recipientEmail))
-      .limit(1)
-      .then((rows: (typeof agencies.$inferSelect)[]) => rows[0]);
+    const agencyId = await resolveAgencyFromInboundEmail(recipientEmail, db);
 
-    if (!agency) {
+    if (!agencyId) {
       // Use `email` (a PII allowlist key) so the scrub redacts the
       // agency's inbound address. Real-world inbound addresses sometimes
       // embed a person's name in the local-part (`john.smith@agency.com`),
@@ -105,13 +102,13 @@ Respond with valid JSON only, no markdown.`;
       extractedFields = llmParsed.fields ?? {};
     } catch {
       logger.warn("Failed to parse LLM response, defaulting to OTHER", {
-        agencyId: agency.id,
+        agencyId: agencyId,
         messageId: key,
       });
     }
 
     // 5. Create or merge lead from LLM-extracted data.
-    //    `agency.id` was resolved at step 3 from the inbound recipient
+    //    `agencyId` was resolved at step 3 from the inbound recipient
     //    address — pass it through so the lead is tenant-scoped from
     //    creation, not after-the-fact via a sentinel.
     const ingestionResult = await processEmail(
@@ -123,12 +120,12 @@ Respond with valid JSON only, no markdown.`;
         body: emailBody,
         receivedAt: new Date().toISOString(),
       },
-      agency.id,
+      agencyId,
     );
 
     const leadId = ingestionResult.leadId;
     logger.info("Lead processed", {
-      agencyId: agency.id,
+      agencyId: agencyId,
       leadId,
       action: ingestionResult.action,
       messageId: key,
@@ -136,7 +133,7 @@ Respond with valid JSON only, no markdown.`;
 
     // 6. Process conversation state with leadId
     const result = await processConversationState({
-      agencyId: agency.id,
+      agencyId: agencyId,
       tenantEmail,
       messageId: key,
       extractedFields,
@@ -145,7 +142,7 @@ Respond with valid JSON only, no markdown.`;
     });
 
     logger.info("Conversation state processed", {
-      agencyId: agency.id,
+      agencyId: agencyId,
       conversationId: result.conversationId,
       conversationType: result.conversationType,
       isComplete: result.isComplete,
@@ -159,7 +156,7 @@ Respond with valid JSON only, no markdown.`;
     await autoReplyService.sendReply({
       result,
       tenantEmail,
-      agencyId: agency.id,
+      agencyId: agencyId,
       propertyRef: extractedFields.property_ref,
     });
   } catch (error) {

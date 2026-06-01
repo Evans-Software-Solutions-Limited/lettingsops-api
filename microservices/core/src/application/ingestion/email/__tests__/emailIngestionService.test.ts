@@ -4,7 +4,19 @@ import {
   processEmail,
   type EmailPayload,
 } from "../emailIngestionService";
-import { ANY_AGENCY } from "../../../repositories/tenantScopedRepository";
+
+const AGENCY_ID = "agency-test-1";
+const RECIPIENT = "lettings@agency-test.com";
+
+// Mock the shared agency resolver so the HTTP wrapper tests don't need
+// a real DB row in the `agencies` table. Inline the agency-id literal
+// inside the factory — vi.mock hoists above local `const` declarations,
+// so referencing `AGENCY_ID` here would ReferenceError at runtime.
+// Per-test overrides (e.g. for the 401 miss case) re-stub via
+// `vi.mocked(resolveAgencyFromInboundEmail).mockResolvedValueOnce(...)`.
+vi.mock("../agencyResolver", () => ({
+  resolveAgencyFromInboundEmail: vi.fn().mockResolvedValue("agency-test-1"),
+}));
 
 const mockLead = {
   id: "lead-existing-1",
@@ -26,6 +38,16 @@ const mockLeadRepo = {
 vi.mock("../../../repositories/leadRepository", () => ({
   LeadRepository: vi.fn(() => mockLeadRepo),
 }));
+
+// Helper: invoke the HTTP wrapper with the I-PR-B contract — the
+// `to` (recipient) field is required, but every test in this file
+// uses the same RECIPIENT default. Callers that need a different `to`
+// can pass it in the payload and it overrides the default.
+const callWrapper = (payload: EmailPayload & { to?: string }) =>
+  EmailIngestionService.decorator.emailIngestionService.processEmail({
+    to: RECIPIENT,
+    ...payload,
+  });
 
 describe("EmailIngestionService", () => {
   beforeEach(() => {
@@ -51,7 +73,7 @@ describe("EmailIngestionService", () => {
         receivedAt: "2024-06-01T10:00:00.000Z",
       };
 
-      const result = await processEmail(payload, ANY_AGENCY);
+      const result = await processEmail(payload, AGENCY_ID);
 
       expect(result).toHaveProperty("leadId");
       expect(result).toHaveProperty("action");
@@ -69,7 +91,7 @@ describe("EmailIngestionService", () => {
           body: "Body",
           receivedAt: "2024-06-01T10:00:00.000Z",
         },
-        ANY_AGENCY,
+        AGENCY_ID,
       );
 
       expect(result.action).toBe("IGNORED");
@@ -91,7 +113,7 @@ describe("EmailIngestionService", () => {
         receivedAt: "2024-06-01T10:00:00.000Z",
       };
 
-      const result = await processEmail(payload, ANY_AGENCY);
+      const result = await processEmail(payload, AGENCY_ID);
 
       expect(result.action).toBe("MERGED");
       expect(result.leadId).toBe(mockLead.id);
@@ -122,7 +144,7 @@ describe("EmailIngestionService", () => {
           body: "Body",
           receivedAt: "2024-06-01T10:00:00.000Z",
         },
-        ANY_AGENCY,
+        AGENCY_ID,
       );
 
       expect(result.action).toBe("CREATED");
@@ -149,7 +171,7 @@ describe("EmailIngestionService", () => {
         receivedAt: "2024-06-01T10:00:00.000Z",
       };
 
-      const result = await processEmail(payload, ANY_AGENCY);
+      const result = await processEmail(payload, AGENCY_ID);
 
       expect(result.action).toBe("CREATED");
       expect(mockLeadRepo.create).toHaveBeenCalledWith(
@@ -179,7 +201,7 @@ describe("EmailIngestionService", () => {
         receivedAt: "2024-06-01T10:00:00.000Z",
       };
 
-      const result = await processEmail(payload, ANY_AGENCY);
+      const result = await processEmail(payload, AGENCY_ID);
 
       expect(result.action).toBe("CREATED");
       expect(mockLeadRepo.create).toHaveBeenCalledWith(
@@ -208,7 +230,7 @@ describe("EmailIngestionService", () => {
           body: "Body",
           receivedAt: "2024-06-01T10:00:00.000Z",
         },
-        ANY_AGENCY,
+        AGENCY_ID,
       );
 
       expect(result.action).toBe("CREATED");
@@ -239,7 +261,7 @@ describe("EmailIngestionService", () => {
           body: "Body",
           receivedAt: "2024-06-01T10:00:00.000Z",
         },
-        ANY_AGENCY,
+        AGENCY_ID,
       );
 
       expect(result.action).toBe("CREATED");
@@ -256,16 +278,13 @@ describe("EmailIngestionService", () => {
     it("returns IGNORED when findByMessageId returns existing lead", async () => {
       mockLeadRepo.findByMessageId.mockResolvedValue(mockLead);
 
-      const result =
-        await EmailIngestionService.decorator.emailIngestionService.processEmail(
-          {
-            messageId: "msg-duplicate",
-            from: "any@example.com",
-            subject: "Re: Enquiry",
-            body: "Body",
-            receivedAt: "2024-06-01T10:00:00.000Z",
-          },
-        );
+      const result = await callWrapper({
+        messageId: "msg-duplicate",
+        from: "any@example.com",
+        subject: "Re: Enquiry",
+        body: "Body",
+        receivedAt: "2024-06-01T10:00:00.000Z",
+      });
 
       expect(result.action).toBe("IGNORED");
       expect(result.leadId).toBe(mockLead.id);
@@ -286,10 +305,7 @@ describe("EmailIngestionService", () => {
         receivedAt: "2024-06-01T10:00:00.000Z",
       };
 
-      const result =
-        await EmailIngestionService.decorator.emailIngestionService.processEmail(
-          payload,
-        );
+      const result = await callWrapper(payload);
 
       expect(result.action).toBe("MERGED");
       expect(result.leadId).toBe(mockLead.id);
@@ -311,17 +327,14 @@ describe("EmailIngestionService", () => {
         email: "new@example.com",
       });
 
-      const result =
-        await EmailIngestionService.decorator.emailIngestionService.processEmail(
-          {
-            messageId: "msg-new",
-            from: "new@example.com",
-            fromName: "New User",
-            subject: "Enquiry",
-            body: "Body",
-            receivedAt: "2024-06-01T10:00:00.000Z",
-          },
-        );
+      const result = await callWrapper({
+        messageId: "msg-new",
+        from: "new@example.com",
+        fromName: "New User",
+        subject: "Enquiry",
+        body: "Body",
+        receivedAt: "2024-06-01T10:00:00.000Z",
+      });
 
       expect(result.action).toBe("CREATED");
       expect(result.leadId).toBe("lead-new-1");
@@ -401,10 +414,7 @@ describe("EmailIngestionService", () => {
         receivedAt: "2024-06-01T10:00:00.000Z",
       };
 
-      const result =
-        await EmailIngestionService.decorator.emailIngestionService.processEmail(
-          payload,
-        );
+      const result = await callWrapper(payload);
 
       expect(result).toHaveProperty("leadId");
       expect(result).toHaveProperty("action");
@@ -422,10 +432,7 @@ describe("EmailIngestionService", () => {
         receivedAt: new Date().toISOString(),
       };
 
-      const result =
-        await EmailIngestionService.decorator.emailIngestionService.processEmail(
-          payload,
-        );
+      const result = await callWrapper(payload);
 
       expect(["CREATED", "MERGED", "IGNORED"]).toContain(result.action);
     });
@@ -440,10 +447,7 @@ describe("EmailIngestionService", () => {
         receivedAt: new Date().toISOString(),
       };
 
-      const result1 =
-        await EmailIngestionService.decorator.emailIngestionService.processEmail(
-          payload1,
-        );
+      const result1 = await callWrapper(payload1);
 
       // Second message from same email
       const payload2: EmailPayload = {
@@ -455,10 +459,7 @@ describe("EmailIngestionService", () => {
         receivedAt: new Date().toISOString(),
       };
 
-      const result2 =
-        await EmailIngestionService.decorator.emailIngestionService.processEmail(
-          payload2,
-        );
+      const result2 = await callWrapper(payload2);
 
       expect(["CREATED", "MERGED", "IGNORED"]).toContain(result1.action);
       expect(["CREATED", "MERGED", "IGNORED"]).toContain(result2.action);
@@ -475,16 +476,10 @@ describe("EmailIngestionService", () => {
         receivedAt: new Date().toISOString(),
       };
 
-      const result1 =
-        await EmailIngestionService.decorator.emailIngestionService.processEmail(
-          payload,
-        );
+      const result1 = await callWrapper(payload);
 
       // Same messageId should be ignored
-      const result2 =
-        await EmailIngestionService.decorator.emailIngestionService.processEmail(
-          payload,
-        );
+      const result2 = await callWrapper(payload);
 
       expect(["CREATED", "MERGED", "IGNORED"]).toContain(result1.action);
       expect(["CREATED", "MERGED", "IGNORED"]).toContain(result2.action);
@@ -508,15 +503,9 @@ describe("EmailIngestionService", () => {
         receivedAt: "2024-06-01T10:00:00.000Z",
       };
 
-      const result1 =
-        await EmailIngestionService.decorator.emailIngestionService.processEmail(
-          payloadWithName,
-        );
+      const result1 = await callWrapper(payloadWithName);
 
-      const result2 =
-        await EmailIngestionService.decorator.emailIngestionService.processEmail(
-          payloadWithoutName,
-        );
+      const result2 = await callWrapper(payloadWithoutName);
 
       expect(result1).toHaveProperty("leadId");
       expect(result2).toHaveProperty("leadId");
@@ -532,10 +521,7 @@ describe("EmailIngestionService", () => {
         receivedAt: "2024-06-01T10:00:00.000Z",
       };
 
-      const result =
-        await EmailIngestionService.decorator.emailIngestionService.processEmail(
-          payload,
-        );
+      const result = await callWrapper(payload);
 
       expect(result.leadId).toBeTruthy();
       expect(typeof result.leadId).toBe("string");
@@ -550,10 +536,7 @@ describe("EmailIngestionService", () => {
         receivedAt: "2024-06-01T10:00:00.000Z",
       };
 
-      const result =
-        await EmailIngestionService.decorator.emailIngestionService.processEmail(
-          payload,
-        );
+      const result = await callWrapper(payload);
 
       expect(result.leadId).toBeTruthy();
       expect(["CREATED", "MERGED", "IGNORED"]).toContain(result.action);
@@ -569,10 +552,7 @@ describe("EmailIngestionService", () => {
         propertyRef: "PROP001",
       };
 
-      const result =
-        await EmailIngestionService.decorator.emailIngestionService.processEmail(
-          payload,
-        );
+      const result = await callWrapper(payload);
 
       expect(result).toHaveProperty("leadId");
       expect(result).toHaveProperty("action");
@@ -589,10 +569,7 @@ describe("EmailIngestionService", () => {
         receivedAt: isoDate,
       };
 
-      const result =
-        await EmailIngestionService.decorator.emailIngestionService.processEmail(
-          payload,
-        );
+      const result = await callWrapper(payload);
 
       expect(result.leadId).toBeTruthy();
     });
