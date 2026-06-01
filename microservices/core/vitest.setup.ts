@@ -8,6 +8,14 @@ import { vi } from "vitest";
 // in a beforeEach and restore in afterEach.
 process.env.EMAIL_WEBHOOK_SECRET = "test-webhook-secret-do-not-use-in-prod";
 
+// `elevenLabsWebhookHandler` reads `ELEVENLABS_WEBHOOK_SECRET` and
+// validates an HMAC signature over the raw body (3rd-sweep fix).
+// Service-level tests don't go through the handler so they're
+// unaffected; handler-level tests compute a real signature using this
+// value via the helper in `__tests__/elevenLabsWebhookHandler.integration.test.ts`.
+process.env.ELEVENLABS_WEBHOOK_SECRET =
+  "test-elevenlabs-secret-do-not-use-in-prod";
+
 // Create a mock database client that handles drizzle-orm queries
 const createChainableDb = () => {
   // Mock lead object for returns

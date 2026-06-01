@@ -1,5 +1,7 @@
+import { sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import {
+  check,
   integer,
   jsonb,
   pgEnum,
@@ -189,17 +191,43 @@ export const auditLogs = pgTable("audit_logs", {
 
 // ─── Agencies ─────────────────────────────────────────────────────────────────
 
-export const agencies = pgTable("agencies", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name").notNull(),
-  inboundEmail: text("inbound_email").notNull().unique(),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const agencies = pgTable(
+  "agencies",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    /**
+     * Inbound address that routes mail to this agency. Stored canonical
+     * (`lower(trim(...))`) — the table-level CHECK below enforces it,
+     * and the unique index on `lower(...)` blocks case-variant
+     * collisions even on legacy admin tooling that might bypass the
+     * application path. Both added by migration 0004 after Inspector
+     * Brad's HIGH finding on PR #41.
+     */
+    inboundEmail: text("inbound_email").notNull().unique(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    // Canonical-storage CHECK: any future INSERT or UPDATE that doesn't
+    // pre-canonicalise the value is rejected by the DB. Pairs with the
+    // resolver's `.trim().toLowerCase()` on input.
+    check(
+      "agencies_inbound_email_canonical",
+      sql`${table.inboundEmail} = lower(${table.inboundEmail})`,
+    ),
+    // Case-insensitive uniqueness — also makes the resolver's
+    // `lower(inbound_email)` WHERE clause use an index instead of a
+    // sequential scan over the agencies table.
+    uniqueIndex("agencies_inbound_email_lower_idx").on(
+      sql`lower(${table.inboundEmail})`,
+    ),
+  ],
+);
 
 // ─── Estate Agents ────────────────────────────────────────────────────────────
 

@@ -5,6 +5,7 @@ import {
   elevenLabsAgentId,
   jwtSigningKey,
   emailWebhookSecret,
+  elevenLabsWebhookSecret,
 } from "./secrets";
 
 export const lettingsAPI = new sst.aws.ApiGatewayV2("lettings-api");
@@ -34,5 +35,10 @@ export const apiRoute = lettingsAPI.route("$default", {
     // header. Forwarders include the value in `x-webhook-secret`;
     // emailIngestionHandler rejects missing/wrong with 401.
     EMAIL_WEBHOOK_SECRET: emailWebhookSecret.value,
+    // HMAC signing secret for `POST /webhooks/elevenlabs` — same role
+    // as above but ElevenLabs uses HMAC-SHA256 over the raw body, not
+    // a plain shared header. elevenLabsWebhookHandler validates the
+    // `ElevenLabs-Signature` header against this secret.
+    ELEVENLABS_WEBHOOK_SECRET: elevenLabsWebhookSecret.value,
   },
 });

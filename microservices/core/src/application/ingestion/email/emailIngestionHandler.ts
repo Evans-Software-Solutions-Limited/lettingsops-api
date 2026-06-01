@@ -1,3 +1,5 @@
+import { timingSafeEqual } from "node:crypto";
+import { Buffer } from "node:buffer";
 import Elysia, { t } from "elysia";
 import { logger } from "@lettingsops/api-utils/logger";
 import { HttpError } from "../../auth/httpError";
@@ -40,7 +42,20 @@ export function requireEmailWebhookSecret(headers: Headers): void {
     throw new HttpError(500, "Webhook secret not configured");
   }
   const supplied = headers.get("x-webhook-secret");
-  if (!supplied || supplied !== expected) {
+
+  // Constant-time comparison via `crypto.timingSafeEqual`. Plain
+  // `supplied !== expected` short-circuits on the first differing byte,
+  // leaking the secret prefix-by-prefix to an attacker who can measure
+  // request latency. The length-mismatch early-out below is itself
+  // non-constant-time, but the length isn't the secret — only the byte
+  // values are — so that's safe. Block I-PR-B+C 3rd-sweep fix; see
+  // Inspector Brad MEDIUM finding on PR #41.
+  const suppliedBuf = Buffer.from(supplied ?? "");
+  const expectedBuf = Buffer.from(expected);
+  if (
+    suppliedBuf.length !== expectedBuf.length ||
+    !timingSafeEqual(suppliedBuf, expectedBuf)
+  ) {
     logger.warn("Email webhook secret mismatch", {
       reason: supplied ? "wrong_secret" : "missing_header",
     });

@@ -28,3 +28,18 @@ export const alarmEmail = new sst.Secret("LettingsOpsAlarmEmail");
 export const emailWebhookSecret = new sst.Secret(
   "LettingsOpsEmailWebhookSecret",
 );
+
+// HMAC signing secret for the `POST /webhooks/elevenlabs` endpoint.
+// I-PR-C wired the `agentId → agency.id` lookup, which means an
+// attacker-supplied `agentId` now resolves to a real tenant — same
+// amplification as the email side. Set the matching secret in the
+// ElevenLabs dashboard (Webhooks → Signing secret) and via
+// `sst secret set LettingsOpsElevenLabsWebhookSecret <hex>` per stage.
+// ElevenLabs sends `ElevenLabs-Signature: t=<unix>,v0=<hex>` where the
+// hex is HMAC-SHA256 of `${t}.${rawBody}`; the handler validates
+// timestamp tolerance (±5 min) and the HMAC in constant time before
+// schema parse. Block I-PR-B+C 3rd-sweep fix; see Inspector Brad's
+// MEDIUM finding on PR #41 (signature parity with the email path).
+export const elevenLabsWebhookSecret = new sst.Secret(
+  "LettingsOpsElevenLabsWebhookSecret",
+);
