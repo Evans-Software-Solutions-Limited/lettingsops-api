@@ -19,23 +19,32 @@
  * already has a resolved `auth.agencyId` — only the two ingest paths
  * that have no auth context.
  */
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { type Db, agencies, getDb } from "@lettingsops/db";
 
 export async function resolveAgencyFromInboundEmail(
   recipientEmail: string,
   db?: Db,
 ): Promise<string | null> {
-  // Defensive: an empty or whitespace-only recipient never matches.
-  // Returning null here saves a round-trip and gives the caller a clean
+  // Normalise the input before any DB work. Real-world inbound
+  // recipients arrive in mixed case (`Lettings@Agency.com`), with
+  // surrounding whitespace from header parsers, or via forwarders that
+  // don't canonicalise — `eq()` is byte-exact and would 401 well-formed
+  // traffic without this. The SQL side is normalised symmetrically
+  // (`lower(agency.inboundEmail)`) so stored mixed-case rows still
+  // match. Inspector Brad MEDIUM finding, PR #41.
+  const normalised = recipientEmail.trim().toLowerCase();
+
+  // Defensive: empty/whitespace-only input never matches. Returning
+  // null here saves a round-trip and gives the caller a clean
   // "throw 401" shape without an extra guard at every callsite.
-  if (!recipientEmail.trim()) return null;
+  if (!normalised) return null;
 
   const client = db ?? getDb();
   const [row] = await client
     .select({ id: agencies.id })
     .from(agencies)
-    .where(eq(agencies.inboundEmail, recipientEmail))
+    .where(eq(sql`lower(${agencies.inboundEmail})`, normalised))
     .limit(1);
   return row?.id ?? null;
 }

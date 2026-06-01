@@ -53,6 +53,8 @@ type HandlerCase = {
   name: string;
   handler: Elysia;
   path: string;
+  /** Extra headers — used for the email handler's `x-webhook-secret`. */
+  headers?: Record<string, string>;
   body: unknown;
 };
 
@@ -61,6 +63,15 @@ const cases: HandlerCase[] = [
     name: "emailIngestionHandler — unknown recipient → 401",
     handler: emailIngestionHandler as unknown as Elysia,
     path: "/webhooks/email",
+    // Include the correct webhook secret so the auth guard passes
+    // and we exercise the unknown-recipient branch specifically —
+    // without it the test would 401 on the secret check and never
+    // reach the resolver.
+    headers: {
+      "x-webhook-secret":
+        process.env.EMAIL_WEBHOOK_SECRET ??
+        "test-webhook-secret-do-not-use-in-prod",
+    },
     body: {
       to: "unknown@nowhere.example",
       messageId: "msg-unknown-1",
@@ -88,7 +99,10 @@ describe("webhook handlers .onError maps HttpError(401) → 401", () => {
     it(c.name, async () => {
       const req = new Request(`http://localhost${c.path}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(c.headers ?? {}),
+        },
         body: JSON.stringify(c.body),
       });
 

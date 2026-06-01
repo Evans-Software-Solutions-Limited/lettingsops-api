@@ -1,5 +1,13 @@
 import { vi } from "vitest";
 
+// `emailIngestionHandler` reads `EMAIL_WEBHOOK_SECRET` on every request
+// (Block I-PR-B+C 2nd-sweep fix). Set a deterministic test value once
+// at file-load time so every test file sees the same string; handler
+// tests then include `x-webhook-secret: <this value>` to pass the
+// guard. Tests that want to exercise the missing-env path delete it
+// in a beforeEach and restore in afterEach.
+process.env.EMAIL_WEBHOOK_SECRET = "test-webhook-secret-do-not-use-in-prod";
+
 // Create a mock database client that handles drizzle-orm queries
 const createChainableDb = () => {
   // Mock lead object for returns

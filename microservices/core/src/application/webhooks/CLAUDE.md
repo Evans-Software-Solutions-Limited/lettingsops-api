@@ -13,9 +13,10 @@ External webhook integrations:
 ### Webhook Signature Validation
 
 - **ElevenLabs:** Every webhook must carry a signature header; verify it before processing
-- **Email:** Authenticate sender (whitelist known email forwarding service, or DKIM/SPF)
+- **Email (`POST /webhooks/email`):** Authenticated via a shared `x-webhook-secret` header that must match the `EMAIL_WEBHOOK_SECRET` env var (set per stage via the `LettingsOpsEmailWebhookSecret` SST secret — see `infra/secrets.ts`). The guard lives in `emailIngestionHandler.requireEmailWebhookSecret` and runs in `.onRequest`, BEFORE schema validation, so unauthorised probes don't leak schema-error responses. _Block I-PR-B+C 2nd-sweep fix; see PR #41._ The Lambda path (SES → S3 → `emailProcessor.handler`) is implicitly authenticated by AWS IAM and inherits SES's DKIM/SPF checks — it doesn't need the shared secret.
 - **Never** process a webhook without signature validation, even if it "looks right"
 - Missing/invalid signature → 401 Unauthorized; log attempt
+- Missing env var (operator misconfig) → 500 — kept distinct from 401 so missing-config alarms can fire
 
 ### Idempotent Processing
 

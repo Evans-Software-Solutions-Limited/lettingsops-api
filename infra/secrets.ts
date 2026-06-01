@@ -15,3 +15,16 @@ export const jwtSigningKey = new sst.Secret("LettingsOpsJwtSigningKey");
 // confirmation email on first deploy — the recipient must click it
 // once before notifications start flowing.
 export const alarmEmail = new sst.Secret("LettingsOpsAlarmEmail");
+
+// Shared secret for the `POST /webhooks/email` endpoint. Block I-PR-B
+// landed the agency-resolution wiring but left the endpoint
+// unauthenticated; without this guard an attacker who knows an
+// agency's inbound address can inject leads under that tenant's id.
+// Set per stage with `sst secret set LettingsOpsEmailWebhookSecret <hex>`
+// (suggested generation: `openssl rand -hex 32`). Forwarders must
+// include the value in an `x-webhook-secret` header on every call —
+// missing/wrong → 401, missing env → 500 (operator misconfig). Block
+// I-PR-B+C 2nd-sweep fix; see Inspector Brad's HIGH finding on PR #41.
+export const emailWebhookSecret = new sst.Secret(
+  "LettingsOpsEmailWebhookSecret",
+);

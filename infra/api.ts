@@ -4,6 +4,7 @@ import {
   elevenLabsApiKey,
   elevenLabsAgentId,
   jwtSigningKey,
+  emailWebhookSecret,
 } from "./secrets";
 
 export const lettingsAPI = new sst.aws.ApiGatewayV2("lettings-api");
@@ -29,5 +30,9 @@ export const apiRoute = lettingsAPI.route("$default", {
     // JWT signing key consumed by the auth plugin. Plugin treats absence
     // as a permanent 500 (operator misconfig) — never log this value.
     JWT_SIGNING_KEY: jwtSigningKey.value,
+    // Shared secret for `POST /webhooks/email` — see `secrets.ts`
+    // header. Forwarders include the value in `x-webhook-secret`;
+    // emailIngestionHandler rejects missing/wrong with 401.
+    EMAIL_WEBHOOK_SECRET: emailWebhookSecret.value,
   },
 });
