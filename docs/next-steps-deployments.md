@@ -1,18 +1,24 @@
-# Next Steps: Pre-Production and Production Deployments
+# Pre-Production and Production Deployments
 
-This document outlines what’s left to implement for pre-production and production deployments, and what you need to configure in **GitHub** and **AWS** (including secrets and OIDC).
+This document outlines the deploy pipeline for staging and production, and what you need to configure in **GitHub** and **AWS** (including secrets and OIDC).
+
+For the canonical secret inventory — every SST secret + every GitHub Actions secret, plus how to rotate each — see [`docs/secrets.md`](./secrets.md). This doc focuses on the deploy mechanics; `secrets.md` is the lookup table.
 
 ---
 
-## Current State
+## Current State (verified 2026-06-01, Block H of spec-01)
 
-Already in place:
+In place:
 
-- **PR checks** (`pr-checks.yml`) – typecheck, lint, prettier, build, unit tests on every PR.
-- **PR environment** (`pr-environment.yml`) – deploys to `pr-{number}` when the `ready-for-test` label is added.
-- **Destroy PR env** (`destroy-pr-env.yml`) – tears down `pr-{number}` when the PR is closed or the label is removed.
+- **PR checks** (`pr-checks.yml`) — install, detect-changes, typecheck/lint/prettier, build, unit tests with 90% coverage gate, on every PR.
+- **Claude review** (`claude-review.yml`) — Inspector Brad runs on PR open/sync.
+- **Release Please** (`release-please.yml`) — opens release PRs against `main`, publishes GitHub Releases on merge.
+- **Staging deploy** (`staging-deploy.yml`) — triggers on push to `main` (and `workflow_dispatch`). Runs the full PR gate then `sst deploy --stage staging`. Concurrency-locked on `sst-staging`.
+- **Production deploy** (`deploy-production.yml`) — triggers on `release: published` (i.e. Release Please publishing a tagged release) and `workflow_dispatch` with a `ref` input. Runs the full gate then `sst deploy --stage production`. Concurrency-locked on `sst-production`.
 
-Pre-production and production workflows are **not** created yet. The sections below describe what to add and how to configure GitHub and AWS.
+> **Divergence from the original spec/design language.** The spec text and the original draft of this doc used the name **"preprod"** for the non-production staging environment and `AWS_ROLE_ARN_PREPROD` for its IAM role. The implemented pipeline uses **"staging"** end-to-end — workflow file, SST stage name (`--stage staging`), AWS role secret (`AWS_ROLE_ARN_STAGING`), and the GitHub environment name. Treat "staging" and "preprod" as synonyms when reading older spec sections; the implementation is the source of truth.
+
+> **Old draft inaccuracy:** prior versions of this doc claimed `pr-environment.yml` and `destroy-pr-env.yml` workflows existed and deployed to a `pr-{number}` stage when a `ready-for-test` label was added. They **do not exist** in the repo today. The PR-environment pattern was either descoped or never built — `AWS_ROLE_ARN_PR` is therefore an unreferenced secret as of this writing (see §1.1).
 
 ---
 
@@ -20,18 +26,16 @@ Pre-production and production workflows are **not** created yet. The sections be
 
 ### 1.1 Secrets (per environment)
 
-Configure these in **Settings → Secrets and variables → Actions** (repository or environment).
+Configure these in **Settings → Secrets and variables → Actions** (repository or environment). See [`docs/secrets.md`](./secrets.md) for the full inventory including SST-managed secrets.
 
-| Secret                    | Used by                    | Description                                                                |
-| ------------------------- | -------------------------- | -------------------------------------------------------------------------- |
-| `AWS_ROLE_ARN_PR`         | PR deploy, destroy PR env  | IAM role ARN for the **PR** AWS account (already referenced in workflows). |
-| `AWS_ROLE_ARN_PREPROD`    | Preprod deploy (to add)    | IAM role ARN for the **pre-production** AWS account.                       |
-| `AWS_ROLE_ARN_PRODUCTION` | Production deploy (to add) | IAM role ARN for the **production** AWS account.                           |
+| Secret                    | Used by                                                        | Description                                                                                                                                                                                                                                                                                                                            |
+| ------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AWS_ROLE_ARN_STAGING`    | `staging-deploy.yml`                                           | IAM role ARN for the **staging** AWS account. Assumed via OIDC.                                                                                                                                                                                                                                                                        |
+| `AWS_ROLE_ARN_PRODUCTION` | `deploy-production.yml`                                        | IAM role ARN for the **production** AWS account. Assumed via OIDC.                                                                                                                                                                                                                                                                     |
+| `AWS_ROLE_ARN_PR`         | (unused — was for the removed `pr-environment.yml`)            | Reserved for if/when per-PR environments come back. Safe to leave unset.                                                                                                                                                                                                                                                               |
+| `DATABASE_URL`            | both deploy workflows (the `db:push` step before `sst deploy`) | Neon serverless Postgres connection string for the target stage. Read directly by the GitHub runner so `drizzle-kit push` can apply schema changes before SST deploys the Lambda. **Separate from the SST-managed `LettingsOpsDatabaseUrl`** — the SST one is for runtime; this one is for the migration step that runs before deploy. |
 
-**Optional (if you use environment-specific secrets):**
-
-- Create GitHub **environments**: e.g. `preprod`, `production`.
-- Store the role ARN for each in that environment’s secrets (e.g. `AWS_ROLE_ARN` in the `preprod` and `production` environments).
+**Environment-scoped secrets:** the workflows reference `secrets.AWS_ROLE_ARN_STAGING` / `secrets.AWS_ROLE_ARN_PRODUCTION` directly. The `staging-deploy.yml` deploy job declares `environment: staging` and `deploy-production.yml` declares `environment: production`, so per-environment overrides work if you scope the secret to the matching GitHub Environment.
 
 ### 1.2 Variables (optional)
 
@@ -109,65 +113,66 @@ If PR and preprod share an account, you can use one OIDC provider and one or two
 
 ## 3. Workflows to Add
 
-### 3.1 Pre-production deploy
+### 3.1 Staging deploy (`staging-deploy.yml`)
 
-- **Trigger**: Push to `main` (or merge to `main`).
-- **Steps**: Checkout → Setup (Bun) → Build → Configure AWS (using preprod role) → `sst deploy --stage preprod` (or your chosen stage name).
-- **Secrets/vars**: `AWS_ROLE_ARN_PREPROD`, optionally `AWS_REGION`.
+- **Trigger:** push to `main` and `workflow_dispatch`. A guard on the `install` job skips runs whose head commit message contains `release-please` or `Release ` — this prevents the Release Please bot's release PR merge from kicking off a redundant staging deploy on top of the production deploy that's about to fire.
+- **Steps:** Checkout → Setup (Bun) → Typecheck → Lint → Prettier → Build → Unit tests → Configure AWS (OIDC, `AWS_ROLE_ARN_STAGING`) → `drizzle-kit push` against `DATABASE_URL` → `sst unlock --stage staging` (best-effort) → `sst deploy --stage staging`.
+- **Secrets/vars:** `AWS_ROLE_ARN_STAGING`, `DATABASE_URL`, optionally `AWS_REGION` (default `eu-west-2`).
+- **Concurrency:** `sst-staging` group, no cancel-in-progress — overlapping pushes queue rather than race the SST state lock.
 
-### 3.2 Production deploy (with Release Please)
+### 3.2 Production deploy (`deploy-production.yml`)
 
-- **Trigger**: When a **Release Please** “chore” (or release) is merged, or when a release is published.
-- **Steps**: Checkout → Setup → Build → Configure AWS (using production role) → `sst deploy --stage production`.
-- **Secrets/vars**: `AWS_ROLE_ARN_PRODUCTION`, optionally `AWS_REGION`.
+- **Trigger:** `release: published` (i.e. Release Please publishes a tagged GitHub Release on its release-PR merge) **and** `workflow_dispatch` with an optional `ref` input for manual re-deploys.
+- **Checkout:** pins to `github.event.release.tag_name || github.event.inputs.ref || github.ref` so each run deploys the exact tag rather than current `main`.
+- **Steps:** same shape as staging — full gate → AWS OIDC (`AWS_ROLE_ARN_PRODUCTION`) → `drizzle-kit push` → `sst unlock --stage production` → `sst deploy --stage production`.
+- **Secrets/vars:** `AWS_ROLE_ARN_PRODUCTION`, `DATABASE_URL`, optionally `AWS_REGION`.
+- **Concurrency:** `sst-production` group, no cancel-in-progress.
 
-Release Please setup (separate from this doc):
+### 3.3 Release Please (`release-please.yml`)
 
-- Add Release Please config (e.g. `.release-please-config.json`, `release-please` manifest).
-- Use chore/release PRs so that production deploys only after an explicit “release” merge.
+In place. Opens a release PR off `main` whose merge bumps the version and publishes a tagged GitHub Release. That tag-publish event is what fires `deploy-production.yml`. The staging workflow's commit-message guard above is how those two stay out of each other's way.
 
 ---
 
 ## 4. Checklist
 
-Use this as a running list.
+Use this as a running list. Pre-flight before a first deploy to a fresh AWS account:
 
 ### GitHub
 
 - [ ] Create repository (or environment) **secrets**:
-  - [ ] `AWS_ROLE_ARN_PR` (if not already set)
-  - [ ] `AWS_ROLE_ARN_PREPROD`
+  - [ ] `AWS_ROLE_ARN_STAGING`
   - [ ] `AWS_ROLE_ARN_PRODUCTION`
-- [ ] Optionally set **variable** `AWS_REGION`.
-- [ ] Optionally create **environments** `preprod` and `production` and attach secrets there.
-- [ ] Configure **branch protection** for `main` so that PR checks must pass before merge.
+  - [ ] `DATABASE_URL` (Neon connection string — per-stage if you scope to environments)
+- [ ] Set every SST secret listed in [`docs/secrets.md`](./secrets.md) per stage (`bunx sst secret set <Name> <Value> --stage staging` and again `--stage production`).
+- [ ] Optionally set **variable** `AWS_REGION` (default `eu-west-2`).
+- [ ] Optionally create **environments** `staging` and `production` and scope the secrets above to them.
+- [ ] Configure **branch protection** for `main` so that PR checks must pass before merge (see §7 — currently blocked on org plan upgrade).
 
 ### AWS (per account used by GitHub)
 
 - [ ] Add **OIDC identity provider** for `https://token.actions.githubusercontent.com`.
-- [ ] Create **IAM role** for PR (if not done): trust policy for `repo:<ORG>/<REPO>`, attach permissions.
-- [ ] Create **IAM role** for preprod: trust policy, attach permissions; copy ARN into `AWS_ROLE_ARN_PREPROD`.
-- [ ] Create **IAM role** for production: trust policy (stricter if desired), attach permissions; copy ARN into `AWS_ROLE_ARN_PRODUCTION`.
-
-### Repo (when you implement)
-
-- [ ] Add workflow: **pre-production deploy** on push to `main`.
-- [ ] Add workflow: **production deploy** (triggered by Release Please or release event).
-- [ ] Optionally add **Release Please** config and docs.
+- [ ] Create **IAM role** for staging: trust policy for `repo:Evans-Software-Solutions-Limited/lettingsops-api:ref:refs/heads/main`, attach SST-deploy permissions; copy ARN into `AWS_ROLE_ARN_STAGING`.
+- [ ] Create **IAM role** for production: trust policy scoped to release events (or `ref:refs/tags/v*`), attach permissions; copy ARN into `AWS_ROLE_ARN_PRODUCTION`.
 
 ---
 
 ## 5. Stage Names and Accounts (reference)
 
-Align these with your workflows and SST stages:
+`sst.config.ts` reads `input?.stage` (default `dev`) and uses it for:
 
-| Stage name    | When used       | Typical account    |
-| ------------- | --------------- | ------------------ |
-| `pr-{number}` | PR env deploy   | Dev / PR account   |
-| `preprod`     | Merge to main   | Preprod account    |
-| `production`  | Release / chore | Production account |
+- per-stage SST secret resolution
+- `removal: stage === "production" ? "retain" : "remove"`
+- `protect: stage === "production"` (blocks `sst remove --stage production`)
+- AWS resource tag `Stage`
 
-Your `sst.config.ts` already uses `input?.stage` (e.g. for removal and protection); keep using these stage names in `sst deploy --stage <name>` and `sst remove --stage <name>` so behaviour stays consistent.
+| Stage name   | When used                                       | Typical account    | Notes                                                                                                                              |
+| ------------ | ----------------------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `dev`        | Local `bunx sst dev` / `sst deploy` runs        | Personal / sandbox | The fallback default in `sst.config.ts`. Removable on `sst remove --stage dev`.                                                    |
+| `staging`    | `staging-deploy.yml` on push to `main`          | Staging account    | Removable. Some specs and design notes call this "preprod" — the implementation uses `staging` throughout (workflow, role, stage). |
+| `production` | `deploy-production.yml` on `release: published` | Production account | `removal: retain`, `protect: true`. Released only via tagged releases.                                                             |
+
+> The `pr-{number}` per-PR stage from earlier drafts of this doc isn't deployed today (`pr-environment.yml` was never built / has been removed). Leave the `AWS_ROLE_ARN_PR` secret unset until that pipeline is reintroduced.
 
 ---
 
@@ -176,8 +181,8 @@ Your `sst.config.ts` already uses `input?.stage` (e.g. for removal and protectio
 After creating each IAM role in AWS:
 
 1. Open **IAM → Roles** and select the role.
-2. Copy the **Role ARN** (e.g. `arn:aws:iam::123456789012:role/github-actions-preprod`).
-3. Paste into the corresponding GitHub secret (`AWS_ROLE_ARN_PR`, `AWS_ROLE_ARN_PREPROD`, or `AWS_ROLE_ARN_PRODUCTION`).
+2. Copy the **Role ARN** (e.g. `arn:aws:iam::123456789012:role/github-actions-staging`).
+3. Paste into the corresponding GitHub secret (`AWS_ROLE_ARN_STAGING` or `AWS_ROLE_ARN_PRODUCTION`).
 
 No access keys are required when using OIDC; the workflows use `aws-actions/configure-aws-credentials@v4` with `role-to-assume`.
 
@@ -203,12 +208,13 @@ Apply to: `main`.
   - **Dismiss stale approvals when new commits are pushed:** on.
 - **Require status checks to pass before merging:** on.
   - **Require branches to be up to date before merging:** on.
-  - **Required checks:** the five jobs from `pr-checks.yml`:
-    - `Prettier check`
-    - `Typecheck`
-    - `Lint`
+  - **Required checks:** the jobs from `pr-checks.yml` (use the exact `name:` strings, which are what GitHub matches on):
+    - `Install`
+    - `Detect Changes`
+    - `Typecheck, Lint & Prettier`
     - `Build`
-    - `Unit tests`
+    - `Unit Tests & Coverage (90% minimum)`
+    - `Inspector Brad` (from `claude-review.yml`)
 - **Require conversation resolution before merging:** on.
 - **Require linear history:** on (enforces squash-merge workflow).
 - **Do not allow bypassing the above settings:** on (no admin override).
