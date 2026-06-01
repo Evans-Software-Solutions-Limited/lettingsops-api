@@ -31,6 +31,7 @@ jobs:
       other-service: ${{ steps.filter.outputs.other-service }}
       api-utils: ${{ steps.filter.outputs.api-utils }}
       infra: ${{ steps.filter.outputs.infra }}
+      docs: ${{ steps.filter.outputs.docs }}
     steps:
       - uses: dorny/paths-filter@v3
         id: filter
@@ -54,7 +55,20 @@ jobs:
               - bun.lock
               - bun.lockb
               - .github/workflows/**
+            docs:
+              - docs/**
+              - .kiro/**
+              - '**/*.md'
 
+      # `has-changes` gates the heavyweight typecheck / lint / build /
+      # test jobs below. Without `docs` in the OR, docs-only PRs would
+      # evaluate `has-changes=false` and those jobs would be SKIPPED —
+      # and GitHub branch protection treats a skipped required check as
+      # "pending", which would deadlock every docs-only PR once
+      # required-status rules are turned on. Including docs here makes
+      # the gate run on every PR (trivially passing when no code
+      # changed) and keeps branch protection workable. Inspector Brad's
+      # MEDIUM-severity finding on PR #43 has the full reasoning.
       - name: Set has-changes
         id: set-any
         run: |
@@ -62,7 +76,8 @@ jobs:
              [ "${{ steps.filter.outputs.core }}" == "true" ] || \
              [ "${{ steps.filter.outputs.other-service }}" == "true" ] || \
              [ "${{ steps.filter.outputs.api-utils }}" == "true" ] || \
-             [ "${{ steps.filter.outputs.infra }}" == "true" ]; then
+             [ "${{ steps.filter.outputs.infra }}" == "true" ] || \
+             [ "${{ steps.filter.outputs.docs }}" == "true" ]; then
             echo "has-changes=true" >> $GITHUB_OUTPUT
           else
             echo "has-changes=false" >> $GITHUB_OUTPUT

@@ -11,7 +11,7 @@ For the canonical secret inventory — every SST secret + every GitHub Actions s
 In place:
 
 - **PR checks** (`pr-checks.yml`) — install, detect-changes, typecheck/lint/prettier, build, unit tests with 90% coverage gate, on every PR.
-- **Claude review** (`claude-review.yml`) — Inspector Brad runs on PR open/sync.
+- **Claude review** (`claude-review.yml`) — Inspector Brad runs **on demand** when a reviewer comments `@inspector-brad` (or `/inspector-brad`) on a PR. It does **not** run automatically on PR open/sync; the workflow only triggers on `issue_comment: created` and `pull_request_review_comment: created`.
 - **Release Please** (`release-please.yml`) — opens release PRs against `main`, publishes GitHub Releases on merge.
 - **Staging deploy** (`staging-deploy.yml`) — triggers on push to `main` (and `workflow_dispatch`). Runs the full PR gate then `sst deploy --stage staging`. Concurrency-locked on `sst-staging`.
 - **Production deploy** (`deploy-production.yml`) — triggers on `release: published` (i.e. Release Please publishing a tagged release) and `workflow_dispatch` with a `ref` input. Runs the full gate then `sst deploy --stage production`. Concurrency-locked on `sst-production`.
@@ -214,7 +214,9 @@ Apply to: `main`.
     - `Typecheck, Lint & Prettier`
     - `Build`
     - `Unit Tests & Coverage (90% minimum)`
-    - `Inspector Brad` (from `claude-review.yml`)
+
+    > **Do NOT add Inspector Brad to the required checks.** `claude-review.yml` is a comment-triggered workflow — it only fires when a reviewer posts `@inspector-brad` on the PR (see §Current State above). Marking it required would mean every PR sits unmergeable until someone manually summons Brad and Brad happens to finish green; a PR that never receives the comment would be stuck indefinitely. Brad is intentionally advisory in this setup. (The "Inspector Brad" identifier you see on a PR is a commit-status context posted from inside Brad's runtime — it isn't a workflow job name, so even if the policy made sense, GitHub branch protection couldn't match it from a job-name list.)
+
 - **Require conversation resolution before merging:** on.
 - **Require linear history:** on (enforces squash-merge workflow).
 - **Do not allow bypassing the above settings:** on (no admin override).
