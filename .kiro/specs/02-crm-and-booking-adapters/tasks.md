@@ -2,10 +2,10 @@
 
 ## Block A — Ports & registry (foundations)
 
-- [ ] **A1.** Add `microservices/core/src/application/adapters/CLAUDE.md` describing the port-and-adapter pattern and the contract-test rule.
-- [ ] **A2.** Create `adapters/crm/crmAdapter.ts` per design §1.1. Type-only file, no implementation.
-- [ ] **A3.** Create `adapters/booking/slotSourceAdapter.ts` per design §1.2. Type-only.
-- [ ] **A4.** Add the `IntegrationError` class with attempt-count, call name, and a `retryable` flag.
+- [x] **A1.** `microservices/core/src/application/adapters/CLAUDE.md` added: covers when to add a new adapter, the type-only-port convention, the `kind`-is-persisted "never rename" rule, the contract-test registration rule, and the `IntegrationError` policy (transient via `IntegrationError`, permanent misconfig via plain `Error`). Cross-references the spec + the upcoming Block C/D/E files. _Landed in the spec-02 Block A kickoff PR._
+- [x] **A2.** `adapters/crm/crmAdapter.ts` — type-only port. `CrmLead`, `CrmQualification`, `CrmViewing` payload shapes + `CrmAdapter` interface (`kind`, `pushLead`, `updateLeadStatus`, `pushQualification`, `pushViewing`). `LeadStatus` imported from `repositories/leadRepository` (canonical owner — extracting domain types to a shared module is out of scope for Block A and recorded as a future refactor in the file header). Idempotency contract documented inline.
+- [x] **A3.** `adapters/booking/slotSourceAdapter.ts` — type-only port. `Slot`, `BookingRequest` payload shapes + `SlotSourceAdapter` interface (`kind`, `getAvailableSlots`, `bookSlot`, `cancelSlot`). External-event-id idempotency contract documented.
+- [x] **A4.** `adapters/integrationError.ts` — class with `call`, `attempt`, `retryable` (default `true`), uses the standard ES2022 `cause` slot for chained errors so `formatError`-style helpers walk it. 8 unit tests cover construction, defaults, retryable false (permanent), cause attached + unset, name field, `instanceof` checks.
 
 ## Block B — Schema
 
