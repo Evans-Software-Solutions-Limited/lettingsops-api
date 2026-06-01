@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ViewingRepository } from "../viewingRepository";
-import { ANY_AGENCY } from "../tenantScopedRepository";
 import type { Db } from "@lettingsops/db";
+
+const FIXTURE_AGENCY_ID = "agency-test-1";
 
 // ─── Mock DB helper ───────────────────────────────────────────────────────────
 
@@ -57,10 +58,11 @@ describe("ViewingRepository", () => {
       select: vi.fn(() => mockChain([mockViewingRow])),
       update: vi.fn(() => mockChain([])),
     } as unknown as Partial<Db>;
-    // Existing tests exercise the unscoped behaviour they were written
-    // against; the agency-scoped semantics get covered in the
-    // tenantIsolation.test.ts matrix (E4).
-    repo = new ViewingRepository(mockDb as Db, ANY_AGENCY);
+    // Single fixed agency id — the tenant-isolation matrix in
+    // `tenantIsolation.test.ts` (E4) covers cross-tenant semantics
+    // end-to-end. Block I-PR-D retired the ANY_AGENCY sentinel that
+    // used to live here.
+    repo = new ViewingRepository(mockDb as Db, FIXTURE_AGENCY_ID);
   });
 
   describe("create", () => {

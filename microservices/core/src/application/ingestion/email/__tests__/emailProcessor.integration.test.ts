@@ -1,7 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { processEmail } from "../emailIngestionService";
 import { processConversationState } from "../../../conversation/conversationStateService";
-import { ANY_AGENCY } from "../../../repositories/tenantScopedRepository";
+
+// Fixed agency id used as the resolved tenant scope. Block I-PR-D
+// retired the ANY_AGENCY sentinel; processEmail now requires a real
+// UUID string (the caller resolves it from the inbound recipient
+// address via `application/ingestion/email/agencyResolver.ts`).
+const FIXTURE_AGENCY_ID = "agency-test-1";
 
 // Mock the repositories so we don't need real DB connections
 const mockLeadRepo = {
@@ -63,7 +68,7 @@ describe("Email Processing Integration", () => {
         body: "Body",
         receivedAt: new Date().toISOString(),
       },
-      ANY_AGENCY,
+      FIXTURE_AGENCY_ID,
     );
 
     expect(result.action).toBe("CREATED");
@@ -95,7 +100,7 @@ describe("Email Processing Integration", () => {
         body: "Body",
         receivedAt: new Date().toISOString(),
       },
-      ANY_AGENCY,
+      FIXTURE_AGENCY_ID,
     );
 
     expect(result.action).toBe("CREATED");
@@ -128,7 +133,7 @@ describe("Email Processing Integration", () => {
         body: "Body",
         receivedAt: new Date().toISOString(),
       },
-      ANY_AGENCY,
+      FIXTURE_AGENCY_ID,
     );
 
     expect(result.action).toBe("IGNORED");
@@ -160,7 +165,7 @@ describe("Email Processing Integration", () => {
         body: "More info",
         receivedAt: new Date().toISOString(),
       },
-      ANY_AGENCY,
+      FIXTURE_AGENCY_ID,
     );
 
     expect(result.action).toBe("MERGED");
@@ -189,7 +194,7 @@ describe("Email Processing Integration", () => {
         body: "Body with details",
         receivedAt: new Date().toISOString(),
       },
-      ANY_AGENCY,
+      FIXTURE_AGENCY_ID,
     );
 
     expect(result.action).toBe("CREATED");

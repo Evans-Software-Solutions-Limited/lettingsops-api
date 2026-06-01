@@ -3,14 +3,14 @@
  *
  * Data access for Qualification records — backed by Neon via Drizzle ORM.
  *
- * Tenant-scoped: every instance carries an `agencyId` (real UUID or the
- * `ANY_AGENCY` sentinel). See `TenantScopedRepository`.
+ * Tenant-scoped: every instance carries a real `agencyId` UUID. See
+ * `TenantScopedRepository`. The `ANY_AGENCY` sentinel was retired in
+ * Block I-PR-D.
  */
 import { and, eq } from "drizzle-orm";
 import { type Db, qualifications } from "@lettingsops/db";
 import type { ScoreCategory } from "./leadRepository";
 import {
-  type AgencyScope,
   TenantScopedRepository,
   filterPredicates,
 } from "./tenantScopedRepository";
@@ -70,7 +70,7 @@ function rowToQualification(
 export class QualificationRepository extends TenantScopedRepository {
   static readonly key = "QualificationRepository";
 
-  constructor(db: Db | undefined, agencyId: AgencyScope) {
+  constructor(db: Db | undefined, agencyId: string) {
     super(db, agencyId);
   }
 

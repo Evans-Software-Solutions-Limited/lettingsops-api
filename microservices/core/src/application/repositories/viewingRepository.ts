@@ -3,14 +3,13 @@
  *
  * Data access for Viewing records — backed by Neon via Drizzle ORM.
  *
- * Tenant-scoped: every instance carries an `agencyId` (real UUID or
- * the `ANY_AGENCY` sentinel). Reads filter by it; writes inject it.
- * See `TenantScopedRepository`.
+ * Tenant-scoped: every instance carries a real `agencyId` UUID. Reads
+ * filter by it; writes inject it. See `TenantScopedRepository`. The
+ * `ANY_AGENCY` sentinel was retired in Block I-PR-D.
  */
 import { and, eq } from "drizzle-orm";
 import { type Db, viewings } from "@lettingsops/db";
 import {
-  type AgencyScope,
   TenantScopedRepository,
   filterPredicates,
 } from "./tenantScopedRepository";
@@ -50,7 +49,7 @@ function rowToViewing(row: typeof viewings.$inferSelect): Viewing {
 export class ViewingRepository extends TenantScopedRepository {
   static readonly key = "ViewingRepository";
 
-  constructor(db: Db | undefined, agencyId: AgencyScope) {
+  constructor(db: Db | undefined, agencyId: string) {
     super(db, agencyId);
   }
 

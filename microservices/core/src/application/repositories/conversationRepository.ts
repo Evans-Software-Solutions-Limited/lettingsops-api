@@ -4,15 +4,15 @@
  * Data access for EmailConversation entities — backed by Neon
  * (serverless Postgres) via Drizzle ORM.
  *
- * Tenant-scoped: every instance carries an `agencyId` (real UUID or
- * the `ANY_AGENCY` sentinel). The `email_conversations` table has
- * carried `agency_id` since Block phase-1 schema; this commit moves
- * the scoping from per-method args to constructor injection for
- * consistency with the other repos and so reads / writes that
- * previously took no `agencyId` (findById, appendMessageId,
- * setCollectedFields, markComplete) gain the scope filter too —
- * those previously could in principle return / mutate cross-tenant
- * rows if a caller passed the wrong conversationId.
+ * Tenant-scoped: every instance carries a real `agencyId` UUID. The
+ * `email_conversations` table has carried `agency_id` since the
+ * phase-1 schema; constructor injection moves the scoping out of
+ * per-method args so reads / writes that previously took no
+ * `agencyId` (findById, appendMessageId, setCollectedFields,
+ * markComplete) all gain the scope filter — they previously could in
+ * principle return / mutate cross-tenant rows if a caller passed the
+ * wrong conversationId. The `ANY_AGENCY` sentinel was retired in
+ * Block I-PR-D.
  */
 import { and, eq } from "drizzle-orm";
 import {
@@ -22,7 +22,6 @@ import {
   type ConversationTypeEnum,
 } from "@lettingsops/db";
 import {
-  type AgencyScope,
   TenantScopedRepository,
   filterPredicates,
 } from "./tenantScopedRepository";
@@ -36,7 +35,7 @@ export interface CreateConversationInput {
 export class ConversationRepository extends TenantScopedRepository {
   static readonly key = "ConversationRepository";
 
-  constructor(db: Db | undefined, agencyId: AgencyScope) {
+  constructor(db: Db | undefined, agencyId: string) {
     super(db, agencyId);
   }
 
@@ -90,22 +89,10 @@ export class ConversationRepository extends TenantScopedRepository {
   }
 
   async create(input: CreateConversationInput): Promise<EmailConversationRow> {
-    const agencyId = this.writeAgencyId();
-    if (agencyId === undefined) {
-      // Unlike the Block E.0 tables, `email_conversations.agency_id`
-      // predates this work and has no transitional DEFAULT — there's
-      // nothing for Postgres to fall back to. Existing callers all
-      // know the real agencyId (conversationStateService receives it
-      // from the email processor), so this only fires if someone
-      // wires up a new sentinel-scoped create path by mistake.
-      throw new Error(
-        "ConversationRepository.create requires a real agencyId; the ANY_AGENCY sentinel is not supported for writes on this table.",
-      );
-    }
     const [row] = await this.db
       .insert(emailConversations)
       .values({
-        agencyId,
+        agencyId: this.writeAgencyId(),
         tenantEmail: input.tenantEmail,
         leadId: input.leadId,
         conversationType: input.conversationType ?? "OTHER",
