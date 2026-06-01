@@ -1,7 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { LeadRepository } from "../leadRepository";
-import { ANY_AGENCY } from "../tenantScopedRepository";
 import type { Db } from "@lettingsops/db";
+
+// Real-UUID-shaped fixture for the repo's tenant scope. The
+// tenant-isolation matrix in `tenantIsolation.test.ts` covers the
+// agency-scoped semantics end-to-end; this file's tests use a single
+// fixed UUID so the chainable mock always sees the same WHERE
+// argument. Block I-PR-D retired the ANY_AGENCY sentinel that used
+// to live here.
+const FIXTURE_AGENCY_ID = "agency-test-1";
 
 // ─── Mock DB helper ───────────────────────────────────────────────────────────
 
@@ -73,12 +80,7 @@ describe("LeadRepository", () => {
       select: vi.fn(() => mockChain([mockLeadRow])),
       update: vi.fn(() => mockChain([])),
     } as unknown as Partial<Db>;
-    // Tests exercise the unscoped behaviour. The tenant-isolation
-    // matrix in `tenantIsolation.test.ts` covers the agency-scoped
-    // semantics. Construct with the ANY_AGENCY sentinel here so reads
-    // skip the filter (matches pre-Block-E behaviour these tests were
-    // written against).
-    repo = new LeadRepository(mockDb as Db, ANY_AGENCY);
+    repo = new LeadRepository(mockDb as Db, FIXTURE_AGENCY_ID);
   });
 
   // ── create ──────────────────────────────────────────────────────────────────

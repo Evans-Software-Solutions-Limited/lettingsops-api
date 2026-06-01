@@ -12,7 +12,6 @@ import { LeadRepository } from "../leadRepository";
 import { ViewingRepository } from "../viewingRepository";
 import { QualificationRepository } from "../qualificationRepository";
 import { ConversationRepository } from "../conversationRepository";
-import { ANY_AGENCY } from "../tenantScopedRepository";
 import type { Db } from "@lettingsops/db";
 
 /**
@@ -22,13 +21,15 @@ import type { Db } from "@lettingsops/db";
  * uphold:
  *
  *   - **Reads** (find/select/list): the WHERE predicate composed by the
- *     repo includes `agency_id` and the scoped agency's UUID when the
- *     repo is constructed with a real agency, and includes neither when
- *     constructed with the `ANY_AGENCY` sentinel.
+ *     repo includes `agency_id` and the scoped agency's UUID.
  *   - **Writes** (insert): the value-set includes `agency_id` and the
- *     scoped agency's UUID when constructed with a real agency, and
- *     includes neither when constructed with the sentinel (letting the
- *     column DEFAULT fill in).
+ *     scoped agency's UUID.
+ *
+ * Block I-PR-D retired the `ANY_AGENCY` sentinel. The associated
+ * "reads/writes scoped to the sentinel" cases were removed from this
+ * matrix — the constructor's `agencyId: string` signature blocks
+ * sentinel construction at compile time, so a runtime assertion would
+ * only test the type system.
  *
  * The mock filter / values capture uses a `JSON.stringify`-based
  * fingerprint of the predicate object passed to `.where()` and the
@@ -131,27 +132,11 @@ function whereScopesTo(captured: unknown[], agencyId: string): boolean {
   return fingerprint(captured).includes(agencyId);
 }
 
-/**
- * Inverse — used to check the sentinel path doesn't accidentally
- * compose a scope filter.
- */
-function whereDoesNotScopeTo(captured: unknown[], agencyId: string): boolean {
-  if (captured.length === 0) return true;
-  return !fingerprint(captured).includes(agencyId);
-}
-
 /** Did the captured INSERT/SET record carry an `agencyId` field with the target value? */
 function valuesCarry(captured: unknown[], agencyId: string): boolean {
   if (captured.length === 0) return false;
   const last = captured[captured.length - 1] as Record<string, unknown>;
   return last?.agencyId === agencyId;
-}
-
-/** Did the captured INSERT/SET record omit `agencyId` entirely (sentinel write path)? */
-function valuesOmitAgencyId(captured: unknown[]): boolean {
-  if (captured.length === 0) return false;
-  const last = captured[captured.length - 1] as Record<string, unknown>;
-  return last?.agencyId === undefined;
 }
 
 // ─── LeadRepository ──────────────────────────────────────────────────────────
@@ -203,25 +188,6 @@ describe("Tenant isolation: LeadRepository", () => {
     });
   });
 
-  describe("reads — scoped to ANY_AGENCY sentinel", () => {
-    it("findById does not compose any agency-scoped WHERE clause", async () => {
-      const { db, capture } = makeCapturingDb([]);
-      const repo = new LeadRepository(db, ANY_AGENCY);
-      await repo.findById("lead-1");
-      // No real agency UUID should leak in — neither A nor B.
-      expect(whereDoesNotScopeTo(capture.wheres, AGENCY_A)).toBe(true);
-      expect(whereDoesNotScopeTo(capture.wheres, AGENCY_B)).toBe(true);
-    });
-
-    it("list does not compose any agency-scoped WHERE clause", async () => {
-      const { db, capture } = makeCapturingDb([]);
-      const repo = new LeadRepository(db, ANY_AGENCY);
-      await repo.list({ page: 1, limit: 10 });
-      expect(whereDoesNotScopeTo(capture.wheres, AGENCY_A)).toBe(true);
-      expect(whereDoesNotScopeTo(capture.wheres, AGENCY_B)).toBe(true);
-    });
-  });
-
   describe("writes — scoped to AGENCY_A", () => {
     it("create injects agencyId = A", async () => {
       const NOW = new Date();
@@ -257,32 +223,6 @@ describe("Tenant isolation: LeadRepository", () => {
         receivedAt: new Date().toISOString(),
       });
       expect(valuesCarry(capture.values, AGENCY_A)).toBe(true);
-    });
-  });
-
-  describe("writes — scoped to ANY_AGENCY sentinel", () => {
-    it("create omits agencyId so the column DEFAULT fills in", async () => {
-      const NOW = new Date();
-      const { db, capture } = makeCapturingDb([
-        {
-          id: "lead-1",
-          agencyId: AGENCY_A,
-          name: "x",
-          email: "x@x.com",
-          source: "manual",
-          status: "NEW",
-          createdAt: NOW,
-          updatedAt: NOW,
-        },
-      ]);
-      const repo = new LeadRepository(db, ANY_AGENCY);
-      await repo.create({
-        name: "x",
-        email: "x@x.com",
-        source: "manual",
-        status: "NEW",
-      });
-      expect(valuesOmitAgencyId(capture.values)).toBe(true);
     });
   });
 });
@@ -332,14 +272,6 @@ describe("Tenant isolation: ViewingRepository", () => {
       confirmedAt: new Date().toISOString(),
     });
     expect(valuesCarry(capture.values, AGENCY_A)).toBe(true);
-  });
-
-  it("ANY_AGENCY sentinel reads do not include any agency UUID", async () => {
-    const { db, capture } = makeCapturingDb([]);
-    const repo = new ViewingRepository(db, ANY_AGENCY);
-    await repo.findById("viewing-1");
-    expect(whereDoesNotScopeTo(capture.wheres, AGENCY_A)).toBe(true);
-    expect(whereDoesNotScopeTo(capture.wheres, AGENCY_B)).toBe(true);
   });
 });
 
@@ -426,14 +358,6 @@ describe("Tenant isolation: ConversationRepository", () => {
     const repo = new ConversationRepository(db, AGENCY_A);
     await repo.create({ tenantEmail: "t@x.com" });
     expect(valuesCarry(capture.values, AGENCY_A)).toBe(true);
-  });
-
-  it("create refuses the ANY_AGENCY sentinel (no DEFAULT on this table)", async () => {
-    const { db } = makeCapturingDb([]);
-    const repo = new ConversationRepository(db, ANY_AGENCY);
-    await expect(repo.create({ tenantEmail: "t@x.com" })).rejects.toThrow(
-      /requires a real agencyId/,
-    );
   });
 
   it("appendMessageId scopes the UPDATE by agencyId = A", async () => {

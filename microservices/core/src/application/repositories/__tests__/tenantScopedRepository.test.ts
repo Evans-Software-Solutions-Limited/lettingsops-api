@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { eq } from "drizzle-orm";
 import {
-  ANY_AGENCY,
   TenantScopedRepository,
   filterPredicates,
 } from "../tenantScopedRepository";
@@ -12,9 +11,6 @@ import type { Db } from "@lettingsops/db";
 class TestRepo extends TenantScopedRepository {
   callGetAgencyId() {
     return this.getAgencyId();
-  }
-  callIsAny() {
-    return this.isAny();
   }
   callScopeWhere() {
     return this.scopeWhere(leads.agencyId);
@@ -34,59 +30,29 @@ describe("TenantScopedRepository", () => {
       expect(repo.callGetAgencyId()).toBe("agency-uuid-1");
     });
 
-    it("isAny is false", () => {
-      expect(repo.callIsAny()).toBe(false);
-    });
-
-    it("scopeWhere returns an eq() SQL predicate", () => {
+    it("scopeWhere returns an eq() SQL predicate against the column", () => {
       // We can't deep-equal Drizzle's SQL object across versions, but we
-      // can assert it returned *something* — and structurally matches
-      // what `eq(table.agencyId, "agency-uuid-1")` produces.
+      // can assert it returned *something* structurally similar to what
+      // `eq(table.agencyId, "agency-uuid-1")` produces.
       const expected = eq(leads.agencyId, "agency-uuid-1");
       const actual = repo.callScopeWhere();
       expect(actual).toBeDefined();
-      // Drizzle SQL fragments are objects; loose shape compare:
       expect(typeof actual).toBe(typeof expected);
     });
 
-    it("writeAgencyId returns the agency id (no DEFAULT bypass)", () => {
+    it("writeAgencyId returns the agency id verbatim", () => {
       expect(repo.callWriteAgencyId()).toBe("agency-uuid-1");
     });
   });
 
-  describe("scoped to the ANY_AGENCY sentinel", () => {
-    const repo = new TestRepo(fakeDb, ANY_AGENCY);
-
-    it("getAgencyId returns the sentinel string", () => {
-      expect(repo.callGetAgencyId()).toBe("__any__");
-    });
-
-    it("isAny is true", () => {
-      expect(repo.callIsAny()).toBe(true);
-    });
-
-    it("scopeWhere returns undefined (filter bypass)", () => {
-      // The sentinel's whole point: reads issue a query with no
-      // agency_id WHERE clause, matching pre-Block-E behaviour.
-      expect(repo.callScopeWhere()).toBeUndefined();
-    });
-
-    it("writeAgencyId returns undefined (column DEFAULT fills in)", () => {
-      // Writes that omit `agency_id` get the LEGACY_AGENCY_ID DEFAULT
-      // from Block E.0's migration. The DEFAULT is dropped in
-      // Block E.final, at which point this path must be gone.
-      expect(repo.callWriteAgencyId()).toBeUndefined();
-    });
-  });
-
-  describe("ANY_AGENCY constant", () => {
-    it("is the literal '__any__' string", () => {
-      // Locked: callers grep for this string in TODO comments, and the
-      // E.final cleanup pass relies on it being a single recognisable
-      // value across the codebase.
-      expect(ANY_AGENCY).toBe("__any__");
-    });
-  });
+  // ── Block I-PR-D sentinel-retirement guard ──────────────────────────────
+  //
+  // Pre-PR-D the base class accepted an `ANY_AGENCY = "__any__"` sentinel
+  // that bypassed both the WHERE clause and the agency_id insert value.
+  // The sentinel apparatus is now deleted. There is no functional test
+  // to add for "rejects __any__" because the API surface no longer
+  // accepts anything but `string`; TypeScript blocks the regression at
+  // compile time and `npm run typecheck` is part of the CI gate.
 
   describe("filterPredicates", () => {
     it("drops undefined entries from a predicate list", () => {

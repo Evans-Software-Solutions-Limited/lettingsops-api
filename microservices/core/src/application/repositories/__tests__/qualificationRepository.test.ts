@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { QualificationRepository } from "../qualificationRepository";
-import { ANY_AGENCY } from "../tenantScopedRepository";
 import type { Db } from "@lettingsops/db";
+
+const FIXTURE_AGENCY_ID = "agency-test-1";
 
 // ─── Mock DB helper ───────────────────────────────────────────────────────────
 
@@ -63,9 +64,10 @@ describe("QualificationRepository", () => {
       insert: vi.fn(() => mockChain([mockQualRow])),
       select: vi.fn(() => mockChain([mockQualRow])),
     } as unknown as Partial<Db>;
-    // Existing tests exercise unscoped behaviour; tenant-scoped semantics
-    // get covered in `tenantIsolation.test.ts` (E4).
-    repo = new QualificationRepository(mockDb as Db, ANY_AGENCY);
+    // Single fixed agency id — cross-tenant semantics covered in
+    // `tenantIsolation.test.ts` (E4). Block I-PR-D retired the
+    // ANY_AGENCY sentinel that used to live here.
+    repo = new QualificationRepository(mockDb as Db, FIXTURE_AGENCY_ID);
   });
 
   describe("create", () => {

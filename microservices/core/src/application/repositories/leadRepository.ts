@@ -3,17 +3,17 @@
  *
  * Data access for Lead entities — backed by Neon (serverless Postgres) via Drizzle ORM.
  *
- * Tenant-scoped: every instance carries an `agencyId` (real UUID, or
- * the `ANY_AGENCY` sentinel for the two webhook ingest paths that
- * cannot resolve an agency at construction time — see
- * `TenantScopedRepository`). Reads filter by it; writes inject it.
- * Sentinel-scoped instances bypass the filter and rely on the column
- * DEFAULT for writes.
+ * Tenant-scoped: every instance carries a real `agencyId` UUID. Reads
+ * filter by it; writes inject it. Block I-PR-D retired the
+ * `ANY_AGENCY` sentinel that used to live in this signature; webhook
+ * paths now resolve a real agency via
+ * `application/ingestion/email/agencyResolver.ts` (email) and
+ * `application/auth/agentAgencyRepository.ts` (ElevenLabs) before
+ * constructing the repo.
  */
 import { and, count, eq } from "drizzle-orm";
 import { type Db, communicationLogs, leads } from "@lettingsops/db";
 import {
-  type AgencyScope,
   TenantScopedRepository,
   filterPredicates,
 } from "./tenantScopedRepository";
@@ -90,7 +90,7 @@ function rowToLead(row: typeof leads.$inferSelect): Lead {
 export class LeadRepository extends TenantScopedRepository {
   static readonly key = "LeadRepository";
 
-  constructor(db: Db | undefined, agencyId: AgencyScope) {
+  constructor(db: Db | undefined, agencyId: string) {
     super(db, agencyId);
   }
 
@@ -98,9 +98,6 @@ export class LeadRepository extends TenantScopedRepository {
     const [row] = await this.db
       .insert(leads)
       .values({
-        // `agencyId` is omitted when sentinel-scoped — the column's
-        // transitional DEFAULT (LEGACY_AGENCY_ID) fills in. Real-agency
-        // instances pass the resolved UUID.
         agencyId: this.writeAgencyId(),
         name: input.name,
         email: input.email,
