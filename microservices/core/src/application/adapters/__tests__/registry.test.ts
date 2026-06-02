@@ -214,5 +214,44 @@ describe("adapter registry", () => {
       await getCrmAdapter("agency-b");
       expect(spy).toHaveBeenCalledTimes(2);
     });
+
+    it("dedups concurrent cache-miss reads into a single DB round-trip", async () => {
+      let resolveRead: (v: AgencyIntegrationsRow | null) => void = () => {};
+      const deferred = new Promise<AgencyIntegrationsRow | null>((res) => {
+        resolveRead = res;
+      });
+      const spy = vi
+        .spyOn(AgencyIntegrationsRepository.prototype, "findForAgency")
+        .mockReturnValue(deferred);
+
+      // Both fire before the read resolves → the second must share the
+      // first's in-flight promise rather than issue its own query.
+      const p1 = getCrmAdapter(AGENCY);
+      const p2 = getCrmAdapter(AGENCY);
+      resolveRead(null);
+      await Promise.all([p1, p2]);
+
+      expect(spy).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not cache a read that an invalidation raced (generation guard)", async () => {
+      let resolveRead: (v: AgencyIntegrationsRow | null) => void = () => {};
+      const deferred = new Promise<AgencyIntegrationsRow | null>((res) => {
+        resolveRead = res;
+      });
+      const spy = vi
+        .spyOn(AgencyIntegrationsRepository.prototype, "findForAgency")
+        .mockReturnValueOnce(deferred)
+        .mockResolvedValue(null);
+
+      const p1 = getCrmAdapter(AGENCY); // in-flight read at generation G
+      invalidateAgencyIntegrationsCache(AGENCY); // bumps generation mid-flight
+      resolveRead(null); // completes — must NOT populate the cache
+      await p1;
+
+      // Cache was not populated, so the next call hits the DB again.
+      await getCrmAdapter(AGENCY);
+      expect(spy).toHaveBeenCalledTimes(2);
+    });
   });
 });

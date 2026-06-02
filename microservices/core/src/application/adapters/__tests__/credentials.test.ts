@@ -76,6 +76,20 @@ describe("loadCredentials", () => {
       expect(loadCredentials("LettingsOpsTestSecret")).toBe("not-json-at-all");
     });
 
+    it("hands back the raw blob when the JSON is not a {value} object", () => {
+      // JSON array / primitive → no string `.value`, so the reader returns
+      // the raw blob, which loadCredentials then re-parses to the array.
+      process.env.SST_RESOURCE_LettingsOpsTestSecret = "[1,2,3]";
+      expect(loadCredentials("LettingsOpsTestSecret")).toEqual([1, 2, 3]);
+    });
+
+    it("treats an empty-string env value as absent (loud throw, not silent)", () => {
+      process.env.LettingsOpsTestSecret = "";
+      expect(() => loadCredentials("LettingsOpsTestSecret")).toThrow(
+        /not present at runtime/,
+      );
+    });
+
     it("throws when neither env form is present", () => {
       expect(() => loadCredentials("LettingsOpsTestSecret")).toThrow(
         /LettingsOpsTestSecret.*not present at runtime/,

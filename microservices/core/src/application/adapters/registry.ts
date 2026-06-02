@@ -75,6 +75,13 @@ export const CONFIG_CACHE_TTL_MS = 10_000;
  * Context handed to every adapter factory. `config` is the agency's
  * full row (or `null` when defaulting); `credentials` is the already-
  * resolved secret payload (or `null` when the adapter needs none).
+ *
+ * Block D authors: `credentials` is secret material — NEVER log it, and
+ * never echo it in an error message. The factory runs on every
+ * `getCrmAdapter` / `getSlotSourceAdapter` call (adapter instances are
+ * not cached — only the config row is), so keep construction cheap; an
+ * adapter that holds a connection pool should memoise it externally
+ * rather than open one per factory call.
  */
 export interface AdapterFactoryContext {
   agencyId: string;
@@ -137,13 +144,28 @@ interface CacheEntry {
 
 const configCache = new Map<string, CacheEntry>();
 
+// In-flight reads, keyed by agency. Concurrent cache-miss requests for the
+// same agency share one DB round-trip instead of stampeding (Inspector
+// Brad HIGH, sweep 2).
+const inflight = new Map<string, Promise<AgencyIntegrationsRow | null>>();
+
+// Bumped on every invalidation. A read that started before an invalidation
+// landed carries the old generation and MUST NOT write its now-stale result
+// into the cache — otherwise an invalidation that races an in-flight read is
+// silently undone and stale config is pinned for the full TTL.
+let cacheGeneration = 0;
+
 /**
- * Invalidate the config cache. Call after an `agency_integrations`
- * write so the next `getCrmAdapter` / `getSlotSourceAdapter` rebuilds
- * with the new kind/secret rather than serving a stale adapter for up
- * to the TTL. Pass an `agencyId` to evict one entry; omit to clear all.
+ * Invalidate the config cache. Call after ANY `agency_integrations`
+ * insert OR update (a first-time insert for a previously-null agency is
+ * the path most easily forgotten) so the next `getCrmAdapter` /
+ * `getSlotSourceAdapter` rebuilds with the new kind/secret rather than
+ * serving a stale adapter for up to the TTL. Pass an `agencyId` to evict
+ * one entry; omit to clear all. The generation bump also disarms any
+ * read already in flight, so an invalidation can't be lost to a race.
  */
 export function invalidateAgencyIntegrationsCache(agencyId?: string): void {
+  cacheGeneration++;
   if (agencyId === undefined) configCache.clear();
   else configCache.delete(agencyId);
 }
@@ -152,16 +174,33 @@ async function loadConfig(
   agencyId: string,
   db?: Db,
 ): Promise<AgencyIntegrationsRow | null> {
-  const now = Date.now();
   const cached = configCache.get(agencyId);
-  if (cached !== undefined && cached.expiresAt > now) {
+  if (cached !== undefined && cached.expiresAt > Date.now()) {
     return cached.config;
   }
 
-  const repo = new AgencyIntegrationsRepository(db, agencyId);
-  const config = await repo.findForAgency();
-  configCache.set(agencyId, { config, expiresAt: now + CONFIG_CACHE_TTL_MS });
-  return config;
+  const existing = inflight.get(agencyId);
+  if (existing !== undefined) return existing;
+
+  const generationAtStart = cacheGeneration;
+  const read = (async () => {
+    const repo = new AgencyIntegrationsRepository(db, agencyId);
+    const config = await repo.findForAgency();
+    // Only populate the cache if no invalidation landed mid-flight.
+    // Either way every concurrent caller still receives this fresh value.
+    if (cacheGeneration === generationAtStart) {
+      configCache.set(agencyId, {
+        config,
+        expiresAt: Date.now() + CONFIG_CACHE_TTL_MS,
+      });
+    }
+    return config;
+  })().finally(() => {
+    inflight.delete(agencyId);
+  });
+
+  inflight.set(agencyId, read);
+  return read;
 }
 
 export interface GetAdapterOptions {

@@ -217,6 +217,67 @@ describe("retryIntegrationCall", () => {
     expect(result.ok).toBe(true);
   });
 
+  it("redacts PII and caps length in the audited last_error", async () => {
+    const events = makeEvents();
+    const fn = vi
+      .fn()
+      .mockRejectedValue(
+        new IntegrationError(
+          "push failed for jane.doe@example.com / +44 7700 900123",
+          { call: CALL, attempt: 1, retryable: false },
+        ),
+      );
+
+    await retryIntegrationCall(CALL, fn, { events, refId: "lead-1" });
+
+    const lastError = (events.updateStatus as ReturnType<typeof vi.fn>).mock
+      .calls[0][1].lastError as string;
+    expect(lastError).not.toContain("jane.doe@example.com");
+    expect(lastError).not.toContain("900123");
+    expect(lastError).toContain("[redacted-email]");
+    expect(lastError).toContain("[redacted-phone]");
+  });
+
+  it("caps an over-long audit message", async () => {
+    const events = makeEvents();
+    const long = "x".repeat(500);
+    const fn = vi.fn().mockRejectedValue(
+      new IntegrationError(long, {
+        call: CALL,
+        attempt: 1,
+        retryable: false,
+      }),
+    );
+
+    await retryIntegrationCall(CALL, fn, { events, refId: "lead-1" });
+
+    const lastError = (events.updateStatus as ReturnType<typeof vi.fn>).mock
+      .calls[0][1].lastError as string;
+    expect(lastError.length).toBeLessThanOrEqual(301); // 300 + ellipsis
+    expect(lastError.endsWith("…")).toBe(true);
+  });
+
+  it("does not throw when the audit write fails on the failure branch", async () => {
+    const events = makeEvents();
+    // The "audit flaky during a real failure" scenario: both fn and the
+    // failed_permanent status write reject.
+    (events.updateStatus as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error("status write failed"),
+    );
+    const fn = vi.fn().mockRejectedValue(
+      new IntegrationError("401", {
+        call: CALL,
+        attempt: 1,
+        retryable: false,
+      }),
+    );
+
+    const result = await retryIntegrationCall(CALL, fn, { events });
+
+    expect(result.ok).toBe(false);
+    expect(result.attempts).toBe(1);
+  });
+
   it("passes the 1-indexed attempt number to fn", async () => {
     const events = makeEvents();
     const seen: number[] = [];

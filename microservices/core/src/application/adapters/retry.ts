@@ -37,11 +37,30 @@
  * The backoff schedule here is correct per §2.4; this is about where the
  * helper is called from, not the schedule itself.
  *
+ * ABANDONED-`retrying` CAVEAT for dashboard consumers (spec §5): the
+ * in-process `sleep` is not cancellable, and a Lambda container frozen
+ * (or reaped) mid-backoff can leave a row stuck at `retrying` with no
+ * process left to reconcile it to `succeeded` / `failed_permanent`.
+ * Until the async re-driver lands, treat `retrying` rows older than the
+ * max schedule (~40s) as presumed-abandoned rather than in-progress.
+ *
  * Design: `.kiro/specs/02-crm-and-booking-adapters/design.md` §2.4.
  */
 import { logger, formatError } from "@lettingsops/api-utils/logger";
 import { IntegrationError } from "./integrationError";
-import type { IntegrationEventsRepository } from "../repositories/integrationEventsRepository";
+import type {
+  IntegrationEventsRepository,
+  IntegrationStatus,
+} from "../repositories/integrationEventsRepository";
+
+/** Max length persisted to `integration_events.last_error`. */
+const MAX_AUDIT_MESSAGE_LENGTH = 300;
+
+// Coarse PII shapes scrubbed from audit messages as a backstop (see
+// `sanitiseAuditMessage`). Deliberately conservative — over-redaction in
+// an audit field is harmless; a leaked email/phone is not.
+const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+const PHONE_RE = /\+?\d[\d\s().-]{7,}\d/g;
 
 /**
  * Backoff schedule between attempts, in milliseconds (spec §2.4).
@@ -79,14 +98,34 @@ function isRetryable(error: unknown): boolean {
 }
 
 /**
- * Best-effort message for the audit row's `last_error`. IntegrationError
- * messages are author-controlled and PII-free by convention
- * (see `integrationError.ts`); for anything else we fall back to the
- * classified error name so we never leak a raw provider message
- * (which may carry PII) into the table.
+ * Truncate + scrub a string before it lands in `integration_events
+ * .last_error`. The convention is that `IntegrationError.message` is
+ * author-controlled and PII-free — but "by convention" is not a
+ * guarantee, and a Block D adapter that interpolates a provider
+ * response (`429: ${body}`) would otherwise write PII into an audit
+ * row the dashboard renders. This backstop redacts obvious email /
+ * phone shapes and caps length so a single bad message can't dump a
+ * payload into the table. Inspector Brad HIGH finding (sweep 2).
+ */
+function sanitiseAuditMessage(message: string): string {
+  const scrubbed = message
+    .replace(EMAIL_RE, "[redacted-email]")
+    .replace(PHONE_RE, "[redacted-phone]");
+  return scrubbed.length > MAX_AUDIT_MESSAGE_LENGTH
+    ? `${scrubbed.slice(0, MAX_AUDIT_MESSAGE_LENGTH)}…`
+    : scrubbed;
+}
+
+/**
+ * Best-effort message for the audit row's `last_error`. For an
+ * `IntegrationError` we persist the (sanitised) author message; for
+ * anything else we fall back to the classified error name so we never
+ * write a raw provider message (which may carry PII) into the table.
  */
 function auditMessage(error: unknown): string {
-  if (error instanceof IntegrationError) return error.message;
+  if (error instanceof IntegrationError) {
+    return sanitiseAuditMessage(error.message);
+  }
   return formatError(error).errorName;
 }
 
@@ -118,7 +157,9 @@ export async function retryIntegrationCall<T>(
   // Status writes never affect control flow — a flaky audit log must not
   // turn a successful CRM push into a reported failure, nor vice versa.
   const recordStatus = async (
-    status: "retrying" | "succeeded" | "failed_permanent",
+    // Sourced from the repo's own union so a status rename can't drift —
+    // `"pending"` is excluded because it's only ever the create-time state.
+    status: Exclude<IntegrationStatus, "pending">,
     attempts: number,
     lastError?: string,
   ): Promise<void> => {

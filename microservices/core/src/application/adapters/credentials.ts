@@ -52,6 +52,16 @@ export type SecretReader = (secretName: string) => string | undefined;
  * The pattern also doubles as input validation — it rejects names with
  * whitespace, `${}`, path separators, or other shapes that have no
  * business indexing `process.env`.
+ *
+ * KNOWN RESIDUAL GAP (sweep 2): the namespace narrows the blast radius
+ * from "any env var" to "any LettingsOps* secret" — it does NOT prove
+ * the named secret is the *agency's own* credential. An admin could
+ * still point `crm_credentials_secret` at a shared platform secret that
+ * happens to be LettingsOps-prefixed. Closing that fully needs either a
+ * dedicated per-agency-credential sub-namespace (e.g.
+ * `LettingsOpsAgencyCred*`) or an allowlist keyed off the agency, both
+ * of which depend on the Block D / infra secret-naming convention not
+ * yet established. Tracked for Block D.
  */
 const SECRET_NAME_PATTERN = /^LettingsOps[A-Za-z0-9_]+$/;
 
@@ -69,11 +79,15 @@ function envSecretReader(secretName: string): string | undefined {
     );
   }
 
+  // Treat an empty string as absent: a secret linked but resolving to ""
+  // is an operator error, and letting "" through would silently build a
+  // credential-less adapter instead of hitting loadCredentials' loud
+  // "configured but not present" throw. Inspector Brad finding, sweep 2.
   const direct = process.env[secretName];
-  if (direct !== undefined) return direct;
+  if (direct !== undefined && direct !== "") return direct;
 
   const blob = process.env[`SST_RESOURCE_${secretName}`];
-  if (blob === undefined) return undefined;
+  if (blob === undefined || blob === "") return undefined;
 
   // SST stores `{"value":"<secret>","type":"Secret"}`. Pull `.value`
   // when the blob parses to that shape; otherwise hand back the raw
@@ -119,7 +133,11 @@ export function setSecretReader(reader: SecretReader | null): void {
  *     verbatim (a bare token like an API key is a valid credential).
  *
  * Generic over the credential shape so call sites read e.g.
- * `loadCredentials<{ bucket: string }>(name)`.
+ * `loadCredentials<{ bucket: string }>(name)`. The `T` is an UNCHECKED
+ * assertion — JSON parses to whatever the secret holds, and a bare
+ * string is cast straight to `T`. The adapter that receives these
+ * credentials MUST validate the shape before use; treat the return as
+ * `unknown`-with-a-hint, not a guarantee.
  */
 export function loadCredentials<T = unknown>(
   secretName: string | null | undefined,

@@ -15,7 +15,7 @@
  *                  should retry against the backoff schedule; `false`
  *                  for permanent ones (e.g. auth misconfig, malformed
  *                  request) so the helper marks the event
- *                  `failed-permanent` immediately rather than burning
+ *                  `failed_permanent` immediately rather than burning
  *                  retries on a hopeless call.
  *
  * Adapters throw plain `Error` for failures that are neither caller-
