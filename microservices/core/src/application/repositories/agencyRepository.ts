@@ -23,6 +23,16 @@ export class AgencyRepository {
     this.db = db ?? getDb();
   }
 
+  /**
+   * Every agency, id-ordered. Used by the cold-start adapter warm-up
+   * (`adapters/warmup.ts`) to resolve each agency's configured adapters
+   * once on init. Not tenant-scoped — this repo owns the `agencies`
+   * table itself, so a full scan is the intended read.
+   */
+  async listAll(): Promise<AgencyRow[]> {
+    return this.db.select().from(agencies).orderBy(asc(agencies.id));
+  }
+
   async findById(agencyId: string): Promise<AgencyRow | null> {
     const [row] = await this.db
       .select()

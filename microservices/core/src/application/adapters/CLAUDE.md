@@ -73,7 +73,9 @@ doesn't waste backoff time on them.
 - Spec: `.kiro/specs/02-crm-and-booking-adapters/`
 - Ports: `crm/crmAdapter.ts`, `booking/slotSourceAdapter.ts`
 - Errors: `integrationError.ts`
-- Registry (Block C): `registry.ts` _(not in this PR)_
-- Retry helper (Block C): `retry.ts` _(not in this PR)_
-- Reference adapters (Block D): `crm/{noop,csvExport,mock}.ts`, `booking/{mock,googleCalendar}.ts` _(not in this PR)_
+- Registry (Block C): `registry.ts` — `getCrmAdapter` / `getSlotSourceAdapter`, kind→factory map, 10s config cache
+- Retry helper (Block C): `retry.ts` — `retryIntegrationCall`, 1s/5s/30s backoff, never throws out of the caller
+- Credential loader (Block C): `credentials.ts` — resolves an adapter's SST secret by name
+- Cold-start warm-up (Block C): `warmup.ts` — resolves every agency's adapters on init, alerts on unknown kinds
+- Reference adapters (Block D): `crm/{noop,csvExport,mock}.ts`, `booking/{mock,googleCalendar}.ts` _(not in this PR — each must `registerCrmAdapter` / `registerSlotSourceAdapter` at import time)_
 - Contract suites (Block E): `__tests__/{crm,slotSource}AdapterContract.test.ts` _(not in this PR)_

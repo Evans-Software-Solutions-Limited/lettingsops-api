@@ -1,0 +1,166 @@
+/**
+ * retryIntegrationCall — runs an outbound adapter call with bounded
+ * in-process retry and a full audit trail in `integration_events`.
+ *
+ * Contract (spec §2.4):
+ *   - Records one `integration_events` row up front (`pending`), then
+ *     updates it after every attempt (`retrying` / `succeeded` /
+ *     `failed_permanent`). The call ALWAYS lands a row.
+ *   - On a retryable `IntegrationError`, backs off `1s → 5s → 30s`
+ *     (three waits ⇒ up to four attempts).
+ *   - A non-retryable failure short-circuits: no backoff, the event is
+ *     marked `failed_permanent` immediately. "Non-retryable" means an
+ *     `IntegrationError` with `retryable: false`, OR any non-
+ *     `IntegrationError` throw (a plain `Error` is, by the adapters'
+ *     convention, an unrecoverable bug/misconfig — burning 36s of
+ *     backoff on it helps no one).
+ *   - NEVER throws out of the caller. A CRM/calendar failure must not
+ *     block lead creation, qualification, or booking. The outcome is
+ *     returned as a discriminated result so a caller that *does* care
+ *     (e.g. booking, where the calendar write gates the local write)
+ *     can branch on `ok` — but the default is fire-and-forget.
+ *
+ * Why a result object rather than a thrown error: the audit row is the
+ * durable signal (surfaced on the dashboard, spec §5); the return value
+ * is the in-process convenience. Booking is the one hook point that
+ * reads `ok` before persisting; every other hook point ignores it.
+ *
+ * Design: `.kiro/specs/02-crm-and-booking-adapters/design.md` §2.4.
+ */
+import { logger, formatError } from "@lettingsops/api-utils/logger";
+import { IntegrationError } from "./integrationError";
+import type { IntegrationEventsRepository } from "../repositories/integrationEventsRepository";
+
+/**
+ * Backoff schedule between attempts, in milliseconds (spec §2.4).
+ * Length + 1 = the maximum number of attempts: attempt 1 runs
+ * immediately, then a failure waits `BACKOFF_MS[0]` before attempt 2,
+ * and so on. The final attempt has no trailing wait.
+ */
+export const BACKOFF_MS: readonly number[] = [1000, 5000, 30000];
+export const MAX_ATTEMPTS = BACKOFF_MS.length + 1;
+
+export interface RetryContext {
+  /**
+   * Tenant-scoped audit repository. Construct it for the acting agency
+   * (`new IntegrationEventsRepository(db, agencyId)`) — the retry helper
+   * is agency-agnostic and trusts the repo's scope.
+   */
+  events: IntegrationEventsRepository;
+  /** Entity this call acts on (leadId / viewingId), stored on the event row. */
+  refId?: string;
+}
+
+export type RetryOutcome<T> =
+  | { ok: true; value: T; attempts: number }
+  | { ok: false; error: unknown; attempts: number };
+
+/** Resolves after `ms` — isolated so tests can drive it with fake timers. */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryable(error: unknown): boolean {
+  // Only an IntegrationError flagged retryable earns a backoff. Anything
+  // else (plain Error, thrown string) is treated as permanent.
+  return error instanceof IntegrationError && error.retryable;
+}
+
+/**
+ * Best-effort message for the audit row's `last_error`. IntegrationError
+ * messages are author-controlled and PII-free by convention
+ * (see `integrationError.ts`); for anything else we fall back to the
+ * classified error name so we never leak a raw provider message
+ * (which may carry PII) into the table.
+ */
+function auditMessage(error: unknown): string {
+  if (error instanceof IntegrationError) return error.message;
+  return formatError(error).errorName;
+}
+
+export async function retryIntegrationCall<T>(
+  call: string,
+  fn: (attempt: number) => Promise<T>,
+  ctx: RetryContext,
+): Promise<RetryOutcome<T>> {
+  // Create the audit row up front. If even this fails (DB down), we log
+  // and still run `fn` — the integration attempt itself must not be
+  // gated on the audit log being writable. `eventId` stays undefined and
+  // every later status write becomes a no-op via `recordStatus`.
+  let eventId: string | undefined;
+  try {
+    const event = await ctx.events.create({
+      call,
+      refId: ctx.refId,
+      status: "pending",
+    });
+    eventId = event.id;
+  } catch (err) {
+    logger.warn("retryIntegrationCall: failed to create integration_event", {
+      call,
+      refId: ctx.refId,
+      ...formatError(err),
+    });
+  }
+
+  // Status writes never affect control flow — a flaky audit log must not
+  // turn a successful CRM push into a reported failure, nor vice versa.
+  const recordStatus = async (
+    status: "retrying" | "succeeded" | "failed_permanent",
+    attempts: number,
+    lastError?: string,
+  ): Promise<void> => {
+    if (eventId === undefined) return;
+    try {
+      await ctx.events.updateStatus(eventId, {
+        status,
+        attempts,
+        lastError: lastError ?? null,
+      });
+    } catch (err) {
+      logger.error("retryIntegrationCall: failed to update integration_event", {
+        call,
+        eventId,
+        status,
+        ...formatError(err),
+      });
+    }
+  };
+
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const value = await fn(attempt);
+      await recordStatus("succeeded", attempt);
+      return { ok: true, value, attempts: attempt };
+    } catch (err) {
+      lastError = err;
+      const permanent = !isRetryable(err);
+      const isFinalAttempt = attempt === MAX_ATTEMPTS;
+
+      if (permanent || isFinalAttempt) {
+        await recordStatus("failed_permanent", attempt, auditMessage(err));
+        logger.error("retryIntegrationCall: integration call failed", {
+          call,
+          refId: ctx.refId,
+          attempts: attempt,
+          permanent,
+          ...formatError(err),
+        });
+        return { ok: false, error: err, attempts: attempt };
+      }
+
+      // Retryable and attempts remain — record the interim state, back
+      // off, and try again. `BACKOFF_MS[attempt - 1]` is always defined
+      // here because `isFinalAttempt` guards the last index.
+      await recordStatus("retrying", attempt, auditMessage(err));
+      await sleep(BACKOFF_MS[attempt - 1]);
+    }
+  }
+
+  // Unreachable: the loop returns on the final attempt. Kept as a
+  // defensive backstop so a future change to the loop bounds can't fall
+  // through to `undefined`.
+  return { ok: false, error: lastError, attempts: MAX_ATTEMPTS };
+}
