@@ -134,5 +134,41 @@ describe("LeadExternalRefsRepository", () => {
         }),
       ).rejects.toThrow("Failed to upsert lead_external_refs");
     });
+
+    it("rejects a forged leadId that doesn't belong to this agency (pre-insert verify)", async () => {
+      // Inspector Brad MEDIUM finding, PR #45 3rd sweep — the
+      // onConflictDoUpdate `where:` guard only protects the UPDATE
+      // branch. A first-time INSERT with another tenant's leadId
+      // would otherwise succeed and lock the legitimate tenant out
+      // of pushing that lead permanently. The pre-insert SELECT
+      // against `leads WHERE id=$leadId AND agency_id=scope` rejects
+      // the bogus leadId before any write happens.
+      //
+      // The mock returns [] from select() to simulate "no row owned
+      // by this agency matches that leadId" — the realistic
+      // attack-path shape.
+      mockDb.select = vi.fn(
+        () => mockChain([]) as unknown as ReturnType<Db["select"]>,
+      ) as unknown as Db["select"];
+      const insertSpy = vi.fn(
+        () => mockChain([mockRow]) as unknown as ReturnType<Db["insert"]>,
+      );
+      mockDb.insert = insertSpy as unknown as Db["insert"];
+      repo = new LeadExternalRefsRepository(mockDb as Db, FIXTURE_AGENCY);
+
+      await expect(
+        repo.upsert({
+          leadId: "lead-from-other-tenant",
+          crmKind: "reapit",
+          externalId: "POISON",
+        }),
+      ).rejects.toThrow(
+        /lead lead-from-other-tenant does not belong to this agency/,
+      );
+
+      // Crucial: the INSERT must NEVER fire when the verify rejects.
+      // Otherwise the defence-in-depth is one layer thinner.
+      expect(insertSpy).not.toHaveBeenCalled();
+    });
   });
 });

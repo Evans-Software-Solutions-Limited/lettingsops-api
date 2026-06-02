@@ -132,26 +132,34 @@ export class IntegrationEventsRepository extends TenantScopedRepository {
 
   /**
    * Read for the dashboard. Ordered newest-first; `limit` is clamped
-   * to `[1, MAX_LIMIT]`. The upper cap stops a malformed query
-   * string from dragging the database. The lower cap stops two
-   * subtler footguns:
+   * to `[1, MAX_LIMIT]`. Three layers, all load-bearing:
    *
-   *   - `limit: 0` would return `[]` — the caller usually meant
-   *     "default" and gets confused by the empty response.
-   *   - `limit: -1` (e.g. a parser yielding a negative integer)
-   *     would error at Postgres with `LIMIT must not be negative`,
-   *     which is exactly the kind of bubble-up the upper cap was
-   *     meant to prevent.
+   *   - **Finiteness gate (NaN / Infinity / null):** `Number.isFinite`
+   *     catches values that `?? DEFAULT_LIMIT` can't (nullish-
+   *     coalescing only handles `undefined` / `null`, not `NaN`).
+   *     A `?limit=abc` query string parsed via `Number()` yields
+   *     `NaN`; without this gate, `Math.max(NaN, 1)` = `NaN`,
+   *     `Math.min(NaN, 500)` = `NaN`, and `.limit(NaN)` errors at
+   *     Postgres with "invalid input syntax for type bigint: NaN".
+   *     Falling back to `DEFAULT_LIMIT` is the same shape as the
+   *     missing-input path.
+   *   - **Lower cap (`Math.max(safe, 1)`):** `limit: 0` would return
+   *     `[]` and confuse callers expecting the default; `limit: -1`
+   *     would Postgres-error with "LIMIT must not be negative".
+   *   - **Upper cap (`Math.min(..., MAX_LIMIT)`):** prevents a
+   *     malformed query string from dragging the database.
    *
-   * Inspector Brad LOW finding, PR #45.
+   * Inspector Brad LOW findings, PR #45 (2nd sweep: lower-cap;
+   * 3rd sweep: NaN gate).
    */
   async listForAgency(
     filters: ListFilters = {},
   ): Promise<IntegrationEventRow[]> {
-    const limit = Math.min(
-      Math.max(filters.limit ?? DEFAULT_LIMIT, 1),
-      MAX_LIMIT,
-    );
+    const requested = filters.limit;
+    const safe = Number.isFinite(requested)
+      ? (requested as number)
+      : DEFAULT_LIMIT;
+    const limit = Math.min(Math.max(safe, 1), MAX_LIMIT);
 
     return this.db
       .select()

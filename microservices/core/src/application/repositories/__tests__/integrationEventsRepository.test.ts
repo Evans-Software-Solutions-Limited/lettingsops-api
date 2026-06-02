@@ -284,6 +284,56 @@ describe("IntegrationEventsRepository", () => {
       expect(limitSpy).toHaveBeenCalledWith(1);
     });
 
+    it("falls back to DEFAULT_LIMIT on NaN (e.g. ?limit=abc parsed via Number())", async () => {
+      // Inspector Brad LOW finding, PR #45 3rd sweep — `NaN ??
+      // DEFAULT` is NaN (nullish-coalescing doesn't catch it), so
+      // both Math.max(NaN, 1) and Math.min(NaN, 500) yield NaN, and
+      // `.limit(NaN)` errors at Postgres with "invalid input syntax
+      // for type bigint: NaN". The Number.isFinite gate falls back
+      // to DEFAULT_LIMIT — same shape as the no-input path.
+      const limitSpy = vi.fn();
+      const chain: Record<string, unknown> = {
+        from: () => chain,
+        where: () => chain,
+        orderBy: () => chain,
+        limit: (n: unknown) => {
+          limitSpy(n);
+          return Promise.resolve([mockRow]);
+        },
+      };
+      mockDb.select = vi.fn(
+        () => chain as unknown as ReturnType<Db["select"]>,
+      ) as unknown as Db["select"];
+      repo = new IntegrationEventsRepository(mockDb as Db, FIXTURE_AGENCY);
+
+      await repo.listForAgency({ limit: NaN });
+      expect(limitSpy).toHaveBeenCalledWith(50); // DEFAULT_LIMIT
+    });
+
+    it("falls back to DEFAULT_LIMIT on Infinity (defensive against malformed parsers)", async () => {
+      // Number.isFinite is false for Infinity too — same DEFAULT
+      // fallback as NaN. Previously this would have clamped to
+      // MAX_LIMIT (500), which is technically OK but DEFAULT is a
+      // saner outcome for "the value wasn't a real number".
+      const limitSpy = vi.fn();
+      const chain: Record<string, unknown> = {
+        from: () => chain,
+        where: () => chain,
+        orderBy: () => chain,
+        limit: (n: unknown) => {
+          limitSpy(n);
+          return Promise.resolve([mockRow]);
+        },
+      };
+      mockDb.select = vi.fn(
+        () => chain as unknown as ReturnType<Db["select"]>,
+      ) as unknown as Db["select"];
+      repo = new IntegrationEventsRepository(mockDb as Db, FIXTURE_AGENCY);
+
+      await repo.listForAgency({ limit: Infinity });
+      expect(limitSpy).toHaveBeenCalledWith(50);
+    });
+
     it("returns the rows from the query", async () => {
       const rows = await repo.listForAgency();
       expect(rows).toEqual([mockRow]);

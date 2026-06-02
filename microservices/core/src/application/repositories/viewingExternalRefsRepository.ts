@@ -13,6 +13,7 @@ import { and, eq } from "drizzle-orm";
 import {
   type Db,
   viewingExternalRefs,
+  viewings,
   type ViewingExternalRefRow,
 } from "@lettingsops/db";
 import {
@@ -48,19 +49,40 @@ export class ViewingExternalRefsRepository extends TenantScopedRepository {
   }
 
   /**
-   * `where:` on the conflict update scopes the UPDATE branch to this
-   * repo's agency — same defence as `LeadExternalRefsRepository.upsert`.
-   * Without it, a caller in tenant A with a forged viewingId
-   * belonging to tenant B could overwrite B's external_id while
-   * preserving B's agency_id, silently poisoning B's CRM idempotency
-   * map. The mismatched-tenant case now lands on the `Failed to
-   * upsert` throw below instead. Inspector Brad HIGH finding, PR #45.
+   * Insert-or-update on the `(viewing_id, crm_kind)` unique index.
+   * Same two-layer cross-tenant defence as
+   * `LeadExternalRefsRepository.upsert` — see its header for the
+   * full reasoning. Pre-insert verify against `viewings WHERE
+   * id=$viewingId AND agency_id=scope` rejects a forged viewingId
+   * before any write; the `where:` on `onConflictDoUpdate` rejects
+   * a cross-tenant UPDATE on a legitimately-conflicting row.
+   *
+   * Inspector Brad findings on PR #45: HIGH (2nd sweep, conflict
+   * branch) and MEDIUM (3rd sweep, insert branch).
    */
   async upsert(input: {
     viewingId: string;
     crmKind: string;
     externalId: string;
   }): Promise<ViewingExternalRefRow> {
+    // (1) Pre-insert verify — reject cross-tenant viewingId.
+    const [owned] = await this.db
+      .select({ id: viewings.id })
+      .from(viewings)
+      .where(
+        and(
+          eq(viewings.id, input.viewingId),
+          this.scopeWhere(viewings.agencyId),
+        ),
+      )
+      .limit(1);
+    if (!owned) {
+      throw new Error(
+        `ViewingExternalRefsRepository.upsert — viewing ${input.viewingId} does not belong to this agency`,
+      );
+    }
+
+    // (2) INSERT … ON CONFLICT … WHERE agency_id = scope.
     const [row] = await this.db
       .insert(viewingExternalRefs)
       .values({

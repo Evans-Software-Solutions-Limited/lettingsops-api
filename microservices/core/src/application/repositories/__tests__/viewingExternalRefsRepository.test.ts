@@ -126,5 +126,32 @@ describe("ViewingExternalRefsRepository", () => {
         }),
       ).rejects.toThrow("Failed to upsert viewing_external_refs");
     });
+
+    it("rejects a forged viewingId that doesn't belong to this agency (pre-insert verify)", async () => {
+      // Inspector Brad MEDIUM finding, PR #45 3rd sweep — mirror of
+      // the lead-refs pre-insert verify. A cross-tenant viewingId
+      // would otherwise INSERT successfully and lock the legitimate
+      // tenant out of pushing that viewing.
+      mockDb.select = vi.fn(
+        () => mockChain([]) as unknown as ReturnType<Db["select"]>,
+      ) as unknown as Db["select"];
+      const insertSpy = vi.fn(
+        () => mockChain([mockRow]) as unknown as ReturnType<Db["insert"]>,
+      );
+      mockDb.insert = insertSpy as unknown as Db["insert"];
+      repo = new ViewingExternalRefsRepository(mockDb as Db, FIXTURE_AGENCY);
+
+      await expect(
+        repo.upsert({
+          viewingId: "viewing-from-other-tenant",
+          crmKind: "reapit",
+          externalId: "POISON",
+        }),
+      ).rejects.toThrow(
+        /viewing viewing-from-other-tenant does not belong to this agency/,
+      );
+
+      expect(insertSpy).not.toHaveBeenCalled();
+    });
   });
 });

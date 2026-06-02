@@ -18,6 +18,7 @@ import { and, eq } from "drizzle-orm";
 import {
   type Db,
   leadExternalRefs,
+  leads,
   type LeadExternalRefRow,
 } from "@lettingsops/db";
 import {
@@ -60,28 +61,56 @@ export class LeadExternalRefsRepository extends TenantScopedRepository {
   /**
    * Insert-or-update on the `(lead_id, crm_kind)` unique index.
    *
-   * The unique index does NOT include `agency_id` (per the schema —
-   * `lead_id` is itself globally unique so adding agency_id would be
-   * redundant for the constraint, but it's load-bearing here for a
-   * different reason). A caller in tenant A passing a `leadId` that
-   * belongs to tenant B would otherwise conflict on tenant B's row,
-   * `DO UPDATE set: { externalId }` would silently overwrite B's
-   * mapping while preserving B's `agency_id`, and B's next
-   * idempotency check would return the poisoned external id.
+   * Cross-tenant defence runs in TWO places — both are load-bearing:
    *
-   * The `where` guard below scopes the UPDATE branch to rows owned by
-   * this repo's agency. A mismatched-tenant conflict means the
-   * `where` filter fails, no row is updated, `.returning()` yields
-   * `[]`, and the `Failed to upsert` throw below fires — surfacing
-   * the bug instead of silently corrupting cross-tenant state.
+   *   1. **Pre-insert verify** (the SELECT below). A `leadId` is
+   *      sufficient to satisfy the FK on `leads.id`, but the FK
+   *      doesn't constrain the lead's agency. A caller in tenant A
+   *      passing tenant B's leadId — before B has ever pushed —
+   *      would otherwise INSERT a row with `agency_id=A` and
+   *      `lead_id=<B's lead>`, and B's later legitimate upsert would
+   *      hit the conflict + the `where` filter would fail + B would
+   *      be permanently locked out of pushing that lead. The verify
+   *      check rejects the bogus leadId before we ever INSERT.
    *
-   * Inspector Brad HIGH finding, PR #45 2nd sweep.
+   *   2. **Conflict-update `where:`** (further below). The first
+   *      protection only fires on the INSERT branch. If a row
+   *      already exists for `(leadId, crmKind)` from a legitimate
+   *      tenant write, the conflict-update path still has to refuse
+   *      a cross-tenant overwrite. Adding `where: agency_id =
+   *      scope` to `onConflictDoUpdate` means a mismatched-tenant
+   *      conflict fails the WHERE, `.returning()` yields `[]`, and
+   *      the throw below fires — surfacing the bug loudly.
+   *
+   * Both protections were added in response to Inspector Brad's
+   * findings on PR #45 (HIGH in the 2nd sweep, MEDIUM in the 3rd
+   * for the INSERT-path follow-up). `leads.id` is a UUIDv4 so the
+   * realistic exploit window is narrow, but the application
+   * defence is independent of guessability.
+   *
+   * A future hardening pass could replace this with a compound FK
+   * `(lead_id, agency_id) REFERENCES leads(id, agency_id)` for
+   * DB-level enforcement, but that's a migration change for
+   * another PR.
    */
   async upsert(input: {
     leadId: string;
     crmKind: string;
     externalId: string;
   }): Promise<LeadExternalRefRow> {
+    // (1) Pre-insert verify — reject cross-tenant leadId before any write.
+    const [owned] = await this.db
+      .select({ id: leads.id })
+      .from(leads)
+      .where(and(eq(leads.id, input.leadId), this.scopeWhere(leads.agencyId)))
+      .limit(1);
+    if (!owned) {
+      throw new Error(
+        `LeadExternalRefsRepository.upsert — lead ${input.leadId} does not belong to this agency`,
+      );
+    }
+
+    // (2) INSERT … ON CONFLICT … WHERE agency_id = scope.
     const [row] = await this.db
       .insert(leadExternalRefs)
       .values({
