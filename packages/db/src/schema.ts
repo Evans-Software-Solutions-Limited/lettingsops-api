@@ -413,6 +413,127 @@ export const availabilityWindows = pgTable("availability_windows", {
     .defaultNow(),
 });
 
+// ─── Agency Integrations (Phase 2 — CRM & Booking Adapters) ──────────────────
+
+/**
+ * One row per agency holding the configured adapter kinds and the SST
+ * secret names that store each adapter's credentials. Safe defaults
+ * (`noop` CRM + `mock` slot source) so a newly-onboarded agency keeps
+ * working before configuration. Block C's registry reads this with a
+ * 10-second TTL cache; Block F's services route through that registry.
+ *
+ * Spec: `.kiro/specs/02-crm-and-booking-adapters/design.md` §2.1.
+ */
+export const agencyIntegrations = pgTable("agency_integrations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  agencyId: uuid("agency_id")
+    .notNull()
+    .unique() // one-row-per-agency
+    .references(() => agencies.id, { onDelete: "cascade" }),
+  /** Matches `CrmAdapter.kind`. */
+  crmAdapterKind: text("crm_adapter_kind").notNull().default("noop"),
+  /** Name of the SST secret holding this adapter's credentials. Nullable for `noop`. */
+  crmCredentialsSecret: text("crm_credentials_secret"),
+  /** Matches `SlotSourceAdapter.kind`. */
+  slotAdapterKind: text("slot_adapter_kind").notNull().default("mock"),
+  slotCredentialsSecret: text("slot_credentials_secret"),
+  /** Default slot length the calendar adapter slices availability into. */
+  slotGranularityMinutes: integer("slot_granularity_minutes")
+    .notNull()
+    .default(30),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+/**
+ * Idempotency table for CRM lead pushes. The unique index on
+ * `(lead_id, crm_kind)` lets `pushLead` upsert by lead+kind — a retry
+ * after a transient failure must update the existing CRM row, not
+ * create a duplicate.
+ */
+export const leadExternalRefs = pgTable(
+  "lead_external_refs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: uuid("agency_id")
+      .notNull()
+      .references(() => agencies.id, { onDelete: "cascade" }),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id, { onDelete: "cascade" }),
+    /** Matches the originating `CrmAdapter.kind`. */
+    crmKind: text("crm_kind").notNull(),
+    /** Whatever the CRM returned as its own id for this lead. */
+    externalId: text("external_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("lead_external_refs_lead_kind_idx").on(t.leadId, t.crmKind),
+  ],
+);
+
+/** Mirror of `lead_external_refs` for viewings, keyed by `viewing_id`. */
+export const viewingExternalRefs = pgTable(
+  "viewing_external_refs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    agencyId: uuid("agency_id")
+      .notNull()
+      .references(() => agencies.id, { onDelete: "cascade" }),
+    viewingId: uuid("viewing_id")
+      .notNull()
+      .references(() => viewings.id, { onDelete: "cascade" }),
+    /** Matches the originating `CrmAdapter.kind`. */
+    crmKind: text("crm_kind").notNull(),
+    externalId: text("external_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("viewing_external_refs_viewing_kind_idx").on(
+      t.viewingId,
+      t.crmKind,
+    ),
+  ],
+);
+
+/**
+ * Audit + retry-state log for every adapter call. The retry helper
+ * (Block C) creates one row per logical operation and updates `status`
+ * + `attempts` + `last_error` on each attempt. The dashboard
+ * (Integrations page, spec §5) reads this for the per-agency
+ * success/failure timeline. `status` is stored as text (not an enum)
+ * so adding states later doesn't require a migration —
+ * `IntegrationEventsRepository` is the single source of validation.
+ */
+export const integrationEvents = pgTable("integration_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  agencyId: uuid("agency_id")
+    .notNull()
+    .references(() => agencies.id, { onDelete: "cascade" }),
+  /** Named operation, e.g. `crm.pushLead`, `slotSource.bookSlot`. */
+  call: text("call").notNull(),
+  /** Optional reference to the entity being acted on (leadId, viewingId, ...). */
+  refId: text("ref_id"),
+  /** "pending" | "succeeded" | "retrying" | "failed_permanent". */
+  status: text("status").notNull(),
+  attempts: integer("attempts").notNull().default(0),
+  lastError: text("last_error"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 // ─── Types (inferred from schema) ─────────────────────────────────────────────
 
 export type LeadRow = typeof leads.$inferSelect;
@@ -442,5 +563,14 @@ export type ViewingRequestRow = typeof viewingRequests.$inferSelect;
 export type NewViewingRequestRow = typeof viewingRequests.$inferInsert;
 export type AvailabilityWindowRow = typeof availabilityWindows.$inferSelect;
 export type NewAvailabilityWindowRow = typeof availabilityWindows.$inferInsert;
+// Phase 2 — CRM & Booking Adapters
+export type AgencyIntegrationsRow = typeof agencyIntegrations.$inferSelect;
+export type NewAgencyIntegrationsRow = typeof agencyIntegrations.$inferInsert;
+export type LeadExternalRefRow = typeof leadExternalRefs.$inferSelect;
+export type NewLeadExternalRefRow = typeof leadExternalRefs.$inferInsert;
+export type ViewingExternalRefRow = typeof viewingExternalRefs.$inferSelect;
+export type NewViewingExternalRefRow = typeof viewingExternalRefs.$inferInsert;
+export type IntegrationEventRow = typeof integrationEvents.$inferSelect;
+export type NewIntegrationEventRow = typeof integrationEvents.$inferInsert;
 export type ConversationTypeEnum =
   (typeof conversationTypeEnum.enumValues)[number];

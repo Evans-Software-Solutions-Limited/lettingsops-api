@@ -9,9 +9,9 @@
 
 ## Block B — Schema
 
-- [ ] **B1.** Add `agency_integrations`, `lead_external_refs`, `viewing_external_refs`, and `integration_events` tables to `packages/db/src/schema.ts`. Defaults: `crmAdapterKind="noop"`, `slotAdapterKind="mock"`.
-- [ ] **B2.** Generate the migration and snapshot. Backfill: for every existing agency, insert a default `agency_integrations` row.
-- [ ] **B3.** New repos: `AgencyIntegrationsRepository`, `LeadExternalRefsRepository`, `ViewingExternalRefsRepository`, `IntegrationEventsRepository`. All tenant-scoped (Phase 1 base class).
+- [x] **B1.** All 4 tables added to `packages/db/src/schema.ts`. `agency_integrations` (one-row-per-agency via UNIQUE on `agency_id`, defaults `crmAdapterKind="noop"` / `slotAdapterKind="mock"` / `slotGranularityMinutes=30`). `lead_external_refs` (unique index on `(lead_id, crm_kind)`). `viewing_external_refs` (unique index on `(viewing_id, crm_kind)`). `integration_events` (status as `text` not enum so future states don't need migrations — `IntegrationEventsRepository` is the validation surface). Row + NewRow types exported for each.
+- [x] **B2.** Migration `0005_agency_integrations_and_supporting.sql` generated via `drizzle-kit generate`. Hand-edited to append the backfill: `INSERT INTO agency_integrations (agency_id) SELECT id FROM agencies ON CONFLICT (agency_id) DO NOTHING` — idempotent on re-run, gives every existing agency the noop/mock defaults without an operator step. Snapshot + journal updated.
+- [x] **B3.** Four new tenant-scoped repos under `microservices/core/src/application/repositories/`: `agencyIntegrationsRepository.ts` (`findForAgency`, `update` with partial-input + always-bumps-updatedAt), `leadExternalRefsRepository.ts` (`findByLeadAndKind`, `upsert` via `ON CONFLICT (lead_id, crm_kind) DO UPDATE`), `viewingExternalRefsRepository.ts` (same shape against viewings), `integrationEventsRepository.ts` (`create`, `updateStatus`, `listForAgency` with status/call/refId filters + 50-row default / 500-row cap). All extend `TenantScopedRepository`. 24 unit tests across the four files using the chainable-Drizzle mock pattern from Phase 1.
 
 ## Block C — Retry helper & registry
 

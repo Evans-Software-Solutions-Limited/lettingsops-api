@@ -36,6 +36,13 @@
       "when": 1780311034609,
       "tag": "0004_agency_inbound_email_canonical",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1780349542794,
+      "tag": "0005_agency_integrations_and_supporting",
+      "breakpoints": true
     }
   ]
 }
