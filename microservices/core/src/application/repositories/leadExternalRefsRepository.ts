@@ -58,11 +58,24 @@ export class LeadExternalRefsRepository extends TenantScopedRepository {
   }
 
   /**
-   * Insert-or-update on the `(lead_id, crm_kind)` unique index. The
-   * `agency_id` is taken from the repo's scope so a caller can't
-   * accidentally (or maliciously) write an external ref under a
-   * different tenant — the WHERE on update plus the agency_id on
-   * insert lock it down.
+   * Insert-or-update on the `(lead_id, crm_kind)` unique index.
+   *
+   * The unique index does NOT include `agency_id` (per the schema —
+   * `lead_id` is itself globally unique so adding agency_id would be
+   * redundant for the constraint, but it's load-bearing here for a
+   * different reason). A caller in tenant A passing a `leadId` that
+   * belongs to tenant B would otherwise conflict on tenant B's row,
+   * `DO UPDATE set: { externalId }` would silently overwrite B's
+   * mapping while preserving B's `agency_id`, and B's next
+   * idempotency check would return the poisoned external id.
+   *
+   * The `where` guard below scopes the UPDATE branch to rows owned by
+   * this repo's agency. A mismatched-tenant conflict means the
+   * `where` filter fails, no row is updated, `.returning()` yields
+   * `[]`, and the `Failed to upsert` throw below fires — surfacing
+   * the bug instead of silently corrupting cross-tenant state.
+   *
+   * Inspector Brad HIGH finding, PR #45 2nd sweep.
    */
   async upsert(input: {
     leadId: string;
@@ -80,6 +93,7 @@ export class LeadExternalRefsRepository extends TenantScopedRepository {
       .onConflictDoUpdate({
         target: [leadExternalRefs.leadId, leadExternalRefs.crmKind],
         set: { externalId: input.externalId },
+        where: eq(leadExternalRefs.agencyId, this.writeAgencyId()),
       })
       .returning();
 

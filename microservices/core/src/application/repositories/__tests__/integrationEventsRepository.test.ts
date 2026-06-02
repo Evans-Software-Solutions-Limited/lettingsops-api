@@ -96,17 +96,23 @@ describe("IntegrationEventsRepository", () => {
   });
 
   describe("updateStatus", () => {
-    it("writes status, attempts, lastError, and bumps updatedAt", async () => {
-      const setSpy = vi.fn();
+    /** Build an update chain that captures `.set()` and returns one row from `.returning()` (matches a successful update). */
+    function makeUpdateChain(setSpy: ReturnType<typeof vi.fn>) {
       const chain: Record<string, unknown> = {
         set: (patch: unknown) => {
           setSpy(patch);
           return chain;
         },
-        where: () => Promise.resolve(undefined),
+        where: () => chain,
+        returning: () => Promise.resolve([{ id: "ev-uuid-1" }]),
       };
+      return chain;
+    }
+
+    it("writes status, attempts, lastError, and bumps updatedAt", async () => {
+      const setSpy = vi.fn();
       mockDb.update = vi.fn(
-        () => chain as unknown as ReturnType<Db["update"]>,
+        () => makeUpdateChain(setSpy) as unknown as ReturnType<Db["update"]>,
       ) as unknown as Db["update"];
       repo = new IntegrationEventsRepository(mockDb as Db, FIXTURE_AGENCY);
 
@@ -128,15 +134,8 @@ describe("IntegrationEventsRepository", () => {
       // allows omitting lastError, and the repo must coerce so the
       // SET clause has a stable shape.
       const setSpy = vi.fn();
-      const chain: Record<string, unknown> = {
-        set: (patch: unknown) => {
-          setSpy(patch);
-          return chain;
-        },
-        where: () => Promise.resolve(undefined),
-      };
       mockDb.update = vi.fn(
-        () => chain as unknown as ReturnType<Db["update"]>,
+        () => makeUpdateChain(setSpy) as unknown as ReturnType<Db["update"]>,
       ) as unknown as Db["update"];
       repo = new IntegrationEventsRepository(mockDb as Db, FIXTURE_AGENCY);
 
@@ -147,6 +146,30 @@ describe("IntegrationEventsRepository", () => {
 
       const patch = setSpy.mock.calls[0]?.[0] as Record<string, unknown>;
       expect(patch.lastError).toBeNull();
+    });
+
+    it("throws when the eventId doesn't match any row (unknown / wrong-tenant / deleted)", async () => {
+      // Inspector Brad MEDIUM finding, PR #45 — the previous version
+      // silently no-op'd, leaving the retry helper convinced the
+      // status had been persisted while the dashboard still showed
+      // the event stuck at `pending`. Empty `.returning()` is the
+      // signal; the throw makes the failure loud.
+      const chain: Record<string, unknown> = {
+        set: () => chain,
+        where: () => chain,
+        returning: () => Promise.resolve([]),
+      };
+      mockDb.update = vi.fn(
+        () => chain as unknown as ReturnType<Db["update"]>,
+      ) as unknown as Db["update"];
+      repo = new IntegrationEventsRepository(mockDb as Db, FIXTURE_AGENCY);
+
+      await expect(
+        repo.updateStatus("ev-missing", {
+          status: "succeeded",
+          attempts: 1,
+        }),
+      ).rejects.toThrow(/no event matched id=ev-missing/);
     });
   });
 
@@ -211,6 +234,54 @@ describe("IntegrationEventsRepository", () => {
 
       await repo.listForAgency({ limit: 10 });
       expect(limitSpy).toHaveBeenCalledWith(10);
+    });
+
+    it("clamps limit: 0 up to 1 (avoids the silently-empty response footgun)", async () => {
+      // Inspector Brad LOW finding, PR #45 — the upper cap was in
+      // place but the lower wasn't, so a caller asking for `0`
+      // (often meaning "default" in some clients) got `[]` and was
+      // confused. Now `0` becomes the minimum-useful `1`.
+      const limitSpy = vi.fn();
+      const chain: Record<string, unknown> = {
+        from: () => chain,
+        where: () => chain,
+        orderBy: () => chain,
+        limit: (n: unknown) => {
+          limitSpy(n);
+          return Promise.resolve([mockRow]);
+        },
+      };
+      mockDb.select = vi.fn(
+        () => chain as unknown as ReturnType<Db["select"]>,
+      ) as unknown as Db["select"];
+      repo = new IntegrationEventsRepository(mockDb as Db, FIXTURE_AGENCY);
+
+      await repo.listForAgency({ limit: 0 });
+      expect(limitSpy).toHaveBeenCalledWith(1);
+    });
+
+    it("clamps a negative limit up to 1 (avoids Postgres `LIMIT must not be negative` error)", async () => {
+      // Defensive against a malformed query string that parses to a
+      // negative integer. Without this clamp the Postgres error
+      // would bubble up to a 500 on the dashboard — the same class
+      // of failure the upper cap was added to prevent.
+      const limitSpy = vi.fn();
+      const chain: Record<string, unknown> = {
+        from: () => chain,
+        where: () => chain,
+        orderBy: () => chain,
+        limit: (n: unknown) => {
+          limitSpy(n);
+          return Promise.resolve([mockRow]);
+        },
+      };
+      mockDb.select = vi.fn(
+        () => chain as unknown as ReturnType<Db["select"]>,
+      ) as unknown as Db["select"];
+      repo = new IntegrationEventsRepository(mockDb as Db, FIXTURE_AGENCY);
+
+      await repo.listForAgency({ limit: -5 });
+      expect(limitSpy).toHaveBeenCalledWith(1);
     });
 
     it("returns the rows from the query", async () => {

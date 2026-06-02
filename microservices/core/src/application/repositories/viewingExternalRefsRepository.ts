@@ -47,6 +47,15 @@ export class ViewingExternalRefsRepository extends TenantScopedRepository {
     return row ?? null;
   }
 
+  /**
+   * `where:` on the conflict update scopes the UPDATE branch to this
+   * repo's agency — same defence as `LeadExternalRefsRepository.upsert`.
+   * Without it, a caller in tenant A with a forged viewingId
+   * belonging to tenant B could overwrite B's external_id while
+   * preserving B's agency_id, silently poisoning B's CRM idempotency
+   * map. The mismatched-tenant case now lands on the `Failed to
+   * upsert` throw below instead. Inspector Brad HIGH finding, PR #45.
+   */
   async upsert(input: {
     viewingId: string;
     crmKind: string;
@@ -63,6 +72,7 @@ export class ViewingExternalRefsRepository extends TenantScopedRepository {
       .onConflictDoUpdate({
         target: [viewingExternalRefs.viewingId, viewingExternalRefs.crmKind],
         set: { externalId: input.externalId },
+        where: eq(viewingExternalRefs.agencyId, this.writeAgencyId()),
       })
       .returning();
 

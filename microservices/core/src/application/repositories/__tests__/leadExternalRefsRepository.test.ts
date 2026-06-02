@@ -75,11 +75,14 @@ describe("LeadExternalRefsRepository", () => {
       expect(mockDb.insert).toHaveBeenCalledTimes(1);
     });
 
-    it("passes onConflictDoUpdate targeting the (lead_id, crm_kind) unique index", async () => {
-      // Inspector Brad-style regression guard — if a future refactor
-      // drops the ON CONFLICT clause, every retry would create
-      // duplicate refs and the unique-index would start raising at
-      // the DB layer. We verify the call chain hits onConflictDoUpdate.
+    it("passes onConflictDoUpdate targeting (lead_id, crm_kind) AND scoping by agency_id", async () => {
+      // Inspector Brad regression guard:
+      //  - Without ON CONFLICT every retry duplicates refs (the
+      //    unique index would then raise at the DB).
+      //  - Without the `where: agency_id = scope` filter, a forged
+      //    leadId from tenant A could overwrite tenant B's
+      //    external_id on the conflict-update branch (PR #45 HIGH
+      //    finding). Both pieces have to be present.
       const onConflictSpy = vi.fn();
       const chain: Record<string, unknown> = {
         values: () => chain,
@@ -104,11 +107,17 @@ describe("LeadExternalRefsRepository", () => {
       const arg = onConflictSpy.mock.calls[0]?.[0] as {
         target: unknown;
         set: { externalId: string };
+        where?: unknown;
       };
       expect(arg.set.externalId).toBe("REAPIT-LEAD-99999");
-      // target is the [lead_id, crm_kind] column tuple. The mock
-      // columns are stub objects so we just verify it's an array.
+      // target is the [lead_id, crm_kind] column tuple.
       expect(Array.isArray(arg.target)).toBe(true);
+      // The tenant guard. JSON.stringify on a Drizzle SQL fragment
+      // serialises its params; the agency UUID must appear so we
+      // know the WHERE will reject cross-tenant updates at the DB.
+      expect(arg.where).toBeDefined();
+      const serialised = JSON.stringify(arg.where ?? null);
+      expect(serialised).toContain(FIXTURE_AGENCY);
     });
 
     it("throws a clear error when the insert returns no row", async () => {

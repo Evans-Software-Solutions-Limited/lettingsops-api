@@ -91,12 +91,21 @@ export class IntegrationEventsRepository extends TenantScopedRepository {
    * wrong agency from overwriting another tenant's event. Always
    * bumps `updated_at` so the dashboard's "latest activity" column
    * reflects the actual attempt time, not the original create time.
+   *
+   * **Throws on no match.** If the supplied `eventId` doesn't exist,
+   * was deleted, or belongs to a different tenant, the SQL writes
+   * zero rows. Without surfacing that, the retry helper would
+   * believe the status was persisted while the dashboard still shows
+   * the event stuck at `pending` — exactly the silent-failure mode
+   * the audit log exists to surface. `.returning({ id })` gives us
+   * the affected-row signal; an empty result is the clean throw
+   * target. Inspector Brad MEDIUM finding, PR #45.
    */
   async updateStatus(
     eventId: string,
     input: UpdateIntegrationEventInput,
   ): Promise<void> {
-    await this.db
+    const result = await this.db
       .update(integrationEvents)
       .set({
         status: input.status,
@@ -111,17 +120,38 @@ export class IntegrationEventsRepository extends TenantScopedRepository {
             this.scopeWhere(integrationEvents.agencyId),
           ]),
         ),
+      )
+      .returning({ id: integrationEvents.id });
+
+    if (result.length === 0) {
+      throw new Error(
+        `IntegrationEventsRepository.updateStatus — no event matched id=${eventId} for this agency`,
       );
+    }
   }
 
   /**
-   * Read for the dashboard. Ordered newest-first; `limit` capped at
-   * `MAX_LIMIT` so a malformed query string can't drag the database.
+   * Read for the dashboard. Ordered newest-first; `limit` is clamped
+   * to `[1, MAX_LIMIT]`. The upper cap stops a malformed query
+   * string from dragging the database. The lower cap stops two
+   * subtler footguns:
+   *
+   *   - `limit: 0` would return `[]` — the caller usually meant
+   *     "default" and gets confused by the empty response.
+   *   - `limit: -1` (e.g. a parser yielding a negative integer)
+   *     would error at Postgres with `LIMIT must not be negative`,
+   *     which is exactly the kind of bubble-up the upper cap was
+   *     meant to prevent.
+   *
+   * Inspector Brad LOW finding, PR #45.
    */
   async listForAgency(
     filters: ListFilters = {},
   ): Promise<IntegrationEventRow[]> {
-    const limit = Math.min(filters.limit ?? DEFAULT_LIMIT, MAX_LIMIT);
+    const limit = Math.min(
+      Math.max(filters.limit ?? DEFAULT_LIMIT, 1),
+      MAX_LIMIT,
+    );
 
     return this.db
       .select()

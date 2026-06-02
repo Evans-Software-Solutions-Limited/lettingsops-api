@@ -74,7 +74,11 @@ describe("ViewingExternalRefsRepository", () => {
       expect(row.externalId).toBe("REAPIT-VIEWING-12345");
     });
 
-    it("hits onConflictDoUpdate on (viewing_id, crm_kind) — protects against duplicate CRM rows on retry", async () => {
+    it("hits onConflictDoUpdate on (viewing_id, crm_kind) AND scopes UPDATE branch by agency_id", async () => {
+      // Same dual-guard as the lead-refs test: ON CONFLICT prevents
+      // duplicate refs on retry, and `where: agency_id = scope`
+      // prevents a cross-tenant viewingId from overwriting another
+      // tenant's external_id (PR #45 HIGH finding).
       const onConflictSpy = vi.fn();
       const chain: Record<string, unknown> = {
         values: () => chain,
@@ -99,9 +103,13 @@ describe("ViewingExternalRefsRepository", () => {
       const arg = onConflictSpy.mock.calls[0]?.[0] as {
         target: unknown;
         set: { externalId: string };
+        where?: unknown;
       };
       expect(arg.set.externalId).toBe("REAPIT-VIEWING-99999");
       expect(Array.isArray(arg.target)).toBe(true);
+      expect(arg.where).toBeDefined();
+      const serialised = JSON.stringify(arg.where ?? null);
+      expect(serialised).toContain(FIXTURE_AGENCY);
     });
 
     it("throws when the insert returns no row", async () => {
