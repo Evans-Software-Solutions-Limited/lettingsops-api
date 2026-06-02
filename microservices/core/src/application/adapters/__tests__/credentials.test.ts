@@ -5,8 +5,8 @@ describe("loadCredentials", () => {
   afterEach(() => {
     // Restore the default env-backed reader and scrub any env we set.
     setSecretReader(null);
-    delete process.env.TEST_SECRET;
-    delete process.env.SST_RESOURCE_TestSecret;
+    delete process.env.LettingsOpsTestSecret;
+    delete process.env.SST_RESOURCE_LettingsOpsTestSecret;
   });
 
   describe("no secret configured", () => {
@@ -46,35 +46,57 @@ describe("loadCredentials", () => {
 
   describe("default env-backed reader", () => {
     it("reads a directly-linked env var", () => {
-      process.env.TEST_SECRET = JSON.stringify({ token: "t1" });
-      expect(loadCredentials<{ token: string }>("TEST_SECRET")).toEqual({
-        token: "t1",
-      });
+      process.env.LettingsOpsTestSecret = JSON.stringify({ token: "t1" });
+      expect(
+        loadCredentials<{ token: string }>("LettingsOpsTestSecret"),
+      ).toEqual({ token: "t1" });
     });
 
     it("reads the SST_RESOURCE_<name> blob and unwraps `.value`", () => {
-      process.env.SST_RESOURCE_TestSecret = JSON.stringify({
+      process.env.SST_RESOURCE_LettingsOpsTestSecret = JSON.stringify({
         value: "sekret-token",
         type: "Secret",
       });
-      expect(loadCredentials("TestSecret")).toBe("sekret-token");
+      expect(loadCredentials("LettingsOpsTestSecret")).toBe("sekret-token");
     });
 
     it("falls back to the raw blob when it has no string `.value`", () => {
       // No `value` field → reader hands back the raw blob, which
       // loadCredentials then JSON-parses into the object.
-      process.env.SST_RESOURCE_TestSecret = JSON.stringify({ type: "Secret" });
-      expect(loadCredentials("TestSecret")).toEqual({ type: "Secret" });
+      process.env.SST_RESOURCE_LettingsOpsTestSecret = JSON.stringify({
+        type: "Secret",
+      });
+      expect(loadCredentials("LettingsOpsTestSecret")).toEqual({
+        type: "Secret",
+      });
     });
 
     it("falls back to the raw blob when it is not valid JSON", () => {
-      process.env.SST_RESOURCE_TestSecret = "not-json-at-all";
-      expect(loadCredentials("TestSecret")).toBe("not-json-at-all");
+      process.env.SST_RESOURCE_LettingsOpsTestSecret = "not-json-at-all";
+      expect(loadCredentials("LettingsOpsTestSecret")).toBe("not-json-at-all");
     });
 
     it("throws when neither env form is present", () => {
-      expect(() => loadCredentials("TestSecret")).toThrow(
-        /TestSecret.*not present at runtime/,
+      expect(() => loadCredentials("LettingsOpsTestSecret")).toThrow(
+        /LettingsOpsTestSecret.*not present at runtime/,
+      );
+    });
+
+    it("refuses to read a secret name outside the LettingsOps namespace", () => {
+      // The footgun: a DB-stored config value naming an unrelated env var.
+      process.env.DATABASE_URL = "postgres://secret";
+      try {
+        expect(() => loadCredentials("DATABASE_URL")).toThrow(
+          /LettingsOps\* SST namespace/,
+        );
+      } finally {
+        delete process.env.DATABASE_URL;
+      }
+    });
+
+    it("refuses names with injection-y shapes even under the prefix", () => {
+      expect(() => loadCredentials("LettingsOps../../etc")).toThrow(
+        /LettingsOps\* SST namespace/,
       );
     });
   });

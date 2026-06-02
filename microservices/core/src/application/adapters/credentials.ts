@@ -35,11 +35,40 @@
 export type SecretReader = (secretName: string) => string | undefined;
 
 /**
+ * SST secret names follow the `LettingsOps<Name>` convention (see
+ * `infra/secrets.ts`). The default reader refuses to resolve any name
+ * outside that namespace.
+ *
+ * Why: `agency_integrations.{crm,slot}_credentials_secret` is admin-set
+ * data, not code. Without this guard, a stored value of `DATABASE_URL`,
+ * `JWT_SIGNING_KEY`, or any other env var would be read straight out of
+ * `process.env` and handed to the adapter as "credentials" — an
+ * information-disclosure footgun where a DB value chooses which env var
+ * to exfiltrate. Pinning to the `LettingsOps*` namespace means a config
+ * value can only ever reach a secret deliberately provisioned under that
+ * convention, never an unrelated runtime env var. Inspector Brad HIGH
+ * finding, PR #46.
+ *
+ * The pattern also doubles as input validation — it rejects names with
+ * whitespace, `${}`, path separators, or other shapes that have no
+ * business indexing `process.env`.
+ */
+const SECRET_NAME_PATTERN = /^LettingsOps[A-Za-z0-9_]+$/;
+
+/**
  * Default reader: prefers a directly-linked env var (the established
  * pattern), then falls back to the `SST_RESOURCE_<name>` JSON blob SST
- * injects for every linked resource.
+ * injects for every linked resource. Refuses any name outside the
+ * `LettingsOps*` SST namespace (see {@link SECRET_NAME_PATTERN}).
  */
 function envSecretReader(secretName: string): string | undefined {
+  if (!SECRET_NAME_PATTERN.test(secretName)) {
+    throw new Error(
+      `Refusing to resolve credential secret "${secretName}": integration ` +
+        `secret names must be in the LettingsOps* SST namespace.`,
+    );
+  }
+
   const direct = process.env[secretName];
   if (direct !== undefined) return direct;
 

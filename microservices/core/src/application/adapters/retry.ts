@@ -25,6 +25,18 @@
  * is the in-process convenience. Booking is the one hook point that
  * reads `ok` before persisting; every other hook point ignores it.
  *
+ * LATENCY WARNING for Block F: the full schedule is 1+5+30 = 36s of
+ * in-process sleep, which exceeds API Gateway's ~29s integration timeout.
+ * Do NOT `await` a full retry on the synchronous request path — the
+ * client gets a 504 while the retry runs on orphaned. Two safe shapes:
+ *   - fire-and-forget: kick off the retry without awaiting (CRM push on
+ *     lead-create / qualification — the local write already committed); or
+ *   - if the result genuinely gates the response (booking reads `ok`),
+ *     only the FIRST attempt should sit on the request path and longer
+ *     retries belong to the async re-driver (spec §2.4, future SQS work).
+ * The backoff schedule here is correct per §2.4; this is about where the
+ * helper is called from, not the schedule itself.
+ *
  * Design: `.kiro/specs/02-crm-and-booking-adapters/design.md` §2.4.
  */
 import { logger, formatError } from "@lettingsops/api-utils/logger";

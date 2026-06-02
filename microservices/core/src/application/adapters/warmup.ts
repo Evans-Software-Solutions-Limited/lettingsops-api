@@ -19,6 +19,14 @@
  * function never throws. Listing agencies failing (DB down at init)
  * logs once and returns — the API still serves; adapters resolve lazily
  * per request.
+ *
+ * SCALE NOTE: this is an O(agencies) sequential sweep on every cold
+ * start (each agency's config is read once and then cached by the
+ * registry). Fine at current tenant counts; if the agency table grows
+ * into the hundreds, revisit — bound the sweep (e.g. warm only the N
+ * most-recently-active agencies) or drop it in favour of pure lazy
+ * resolution. The lazy path already works; warm-up is an optimisation +
+ * an early-alarm, not a correctness requirement.
  */
 import { logger, formatError } from "@lettingsops/api-utils/logger";
 import type { Db } from "@lettingsops/db";

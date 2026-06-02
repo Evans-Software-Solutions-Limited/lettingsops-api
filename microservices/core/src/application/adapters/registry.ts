@@ -29,6 +29,33 @@
  * caught and alerted, so a misconfigured agency surfaces in logs/alarms
  * rather than 500ing a live request unexpectedly.
  *
+ * ──────────────────────────────────────────────────────────────────────
+ * Wiring contracts for Block F — read before hooking these into services:
+ *
+ *   1. RESOLUTION IS NOT COVERED BY THE RETRY GUARANTEE.
+ *      `retryIntegrationCall` promises never to throw out of the caller,
+ *      but resolving the adapter happens BEFORE that helper runs and CAN
+ *      throw — `UnknownAdapterKindError`, or a credential-load failure
+ *      from `loadCredentials`. So `await getCrmAdapter(...)` outside the
+ *      retry `fn` re-introduces the "CRM misconfig 500s lead creation"
+ *      failure mode the helper exists to prevent. Resolve the adapter
+ *      INSIDE the `fn` you pass to `retryIntegrationCall` — a plain Error
+ *      there is treated as permanent and recorded, never thrown:
+ *
+ *        retryIntegrationCall("crm.pushLead", async () => {
+ *          const crm = await getCrmAdapter(agencyId);   // throws → captured
+ *          return crm.pushLead(lead);
+ *        }, { events, refId: lead.id });
+ *
+ *   2. INVALIDATE ON WRITE. The 10s TTL is the staleness ceiling, not a
+ *      substitute for invalidation. The dashboard / service path that
+ *      writes `agency_integrations` (via `AgencyIntegrationsRepository
+ *      .update`) MUST call `invalidateAgencyIntegrationsCache(agencyId)`
+ *      after the write, or a kind/secret change is ignored for up to the
+ *      TTL. The repository deliberately does not call it itself — a data-
+ *      access class shouldn't know about this in-process cache.
+ * ──────────────────────────────────────────────────────────────────────
+ *
  * Spec: `.kiro/specs/02-crm-and-booking-adapters/design.md` §2.2.
  */
 import type { Db, AgencyIntegrationsRow } from "@lettingsops/db";
@@ -52,7 +79,8 @@ export const CONFIG_CACHE_TTL_MS = 10_000;
 export interface AdapterFactoryContext {
   agencyId: string;
   config: AgencyIntegrationsRow | null;
-  credentials: unknown | null;
+  /** Resolved secret payload, or `null` when the adapter needs none. */
+  credentials: unknown;
 }
 
 export type CrmAdapterFactory = (ctx: AdapterFactoryContext) => CrmAdapter;
