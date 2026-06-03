@@ -257,6 +257,50 @@ describe("retryIntegrationCall", () => {
     expect(lastError.endsWith("…")).toBe(true);
   });
 
+  it("re-caps when redaction tokens grow a short message past the limit", async () => {
+    const events = makeEvents();
+    // ~280 chars in, but each 6-char email becomes a 16-char token, so the
+    // scrubbed string exceeds the 300 cap and must be re-truncated.
+    const manyEmails = "a@b.co ".repeat(40);
+    const fn = vi.fn().mockRejectedValue(
+      new IntegrationError(manyEmails, {
+        call: CALL,
+        attempt: 1,
+        retryable: false,
+      }),
+    );
+
+    await retryIntegrationCall(CALL, fn, { events, refId: "lead-1" });
+
+    const lastError = (events.updateStatus as ReturnType<typeof vi.fn>).mock
+      .calls[0][1].lastError as string;
+    expect(lastError.length).toBeLessThanOrEqual(301);
+    expect(lastError.endsWith("…")).toBe(true);
+    expect(lastError).not.toContain("a@b.co");
+  });
+
+  it("handles a huge adversarial message quickly (no super-linear scrub)", async () => {
+    const events = makeEvents();
+    // The quadratic trigger: a long no-TLD run after an `@`. Truncate-first
+    // bounds the regex to MAX chars; if that regressed, this would hang.
+    const evil = `${"a".repeat(60000)}@${"b".repeat(60000)}`;
+    const fn = vi.fn().mockRejectedValue(
+      new IntegrationError(evil, {
+        call: CALL,
+        attempt: 1,
+        retryable: false,
+      }),
+    );
+
+    const start = performance.now();
+    await retryIntegrationCall(CALL, fn, { events, refId: "lead-1" });
+    expect(performance.now() - start).toBeLessThan(250);
+
+    const lastError = (events.updateStatus as ReturnType<typeof vi.fn>).mock
+      .calls[0][1].lastError as string;
+    expect(lastError.length).toBeLessThanOrEqual(301);
+  });
+
   it("does not throw when the audit write fails on the failure branch", async () => {
     const events = makeEvents();
     // The "audit flaky during a real failure" scenario: both fn and the

@@ -90,6 +90,18 @@ describe("loadCredentials", () => {
       );
     });
 
+    it("treats a linked-but-empty SST secret ({value:''}) as absent", () => {
+      // The canonical empty-secret shape SST mirrors for a linked secret
+      // whose value was never set — must still hit the loud throw.
+      process.env.SST_RESOURCE_LettingsOpsTestSecret = JSON.stringify({
+        value: "",
+        type: "Secret",
+      });
+      expect(() => loadCredentials("LettingsOpsTestSecret")).toThrow(
+        /not present at runtime/,
+      );
+    });
+
     it("throws when neither env form is present", () => {
       expect(() => loadCredentials("LettingsOpsTestSecret")).toThrow(
         /LettingsOpsTestSecret.*not present at runtime/,

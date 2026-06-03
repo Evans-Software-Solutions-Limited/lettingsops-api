@@ -59,7 +59,13 @@ const MAX_AUDIT_MESSAGE_LENGTH = 300;
 // Coarse PII shapes scrubbed from audit messages as a backstop (see
 // `sanitiseAuditMessage`). Deliberately conservative — over-redaction in
 // an audit field is harmless; a leaked email/phone is not.
-const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+//
+// EMAIL_RE is written WITHOUT an overlapping host quantifier
+// (`[A-Za-z0-9-]+` segments separated by literal dots, not a single
+// `[A-Za-z0-9.-]+\.` run) so it can't backtrack super-linearly. Belt and
+// braces: `sanitiseAuditMessage` also truncates BEFORE scrubbing so the
+// regex never sees more than MAX_AUDIT_MESSAGE_LENGTH chars regardless.
+const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+/g;
 const PHONE_RE = /\+?\d[\d\s().-]{7,}\d/g;
 
 /**
@@ -108,12 +114,25 @@ function isRetryable(error: unknown): boolean {
  * payload into the table. Inspector Brad HIGH finding (sweep 2).
  */
 function sanitiseAuditMessage(message: string): string {
-  const scrubbed = message
+  // Truncate BEFORE scrubbing. The redaction regexes can backtrack on
+  // adversarial input (a huge provider error body is exactly the trigger
+  // this function exists for), so bounding the input to MAX first caps
+  // the work at MAX² ops — microseconds — no matter the pattern. Scrubbing
+  // after truncation, not before, is the load-bearing order here.
+  const wasTruncated = message.length > MAX_AUDIT_MESSAGE_LENGTH;
+  const scrubbed = (
+    wasTruncated ? message.slice(0, MAX_AUDIT_MESSAGE_LENGTH) : message
+  )
     .replace(EMAIL_RE, "[redacted-email]")
     .replace(PHONE_RE, "[redacted-phone]");
-  return scrubbed.length > MAX_AUDIT_MESSAGE_LENGTH
-    ? `${scrubbed.slice(0, MAX_AUDIT_MESSAGE_LENGTH)}…`
-    : scrubbed;
+
+  // A replacement token can be longer than what it replaced, so the
+  // scrubbed string may exceed MAX even after the pre-truncation; re-cap.
+  // Append an ellipsis whenever any of the original was dropped.
+  if (scrubbed.length <= MAX_AUDIT_MESSAGE_LENGTH) {
+    return wasTruncated ? `${scrubbed}…` : scrubbed;
+  }
+  return `${scrubbed.slice(0, MAX_AUDIT_MESSAGE_LENGTH)}…`;
 }
 
 /**

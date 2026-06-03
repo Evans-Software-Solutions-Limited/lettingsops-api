@@ -99,7 +99,13 @@ function envSecretReader(secretName: string): string | undefined {
       typeof parsed === "object" &&
       typeof (parsed as { value?: unknown }).value === "string"
     ) {
-      return (parsed as { value: string }).value;
+      // A linked-but-empty SST secret mirrors as `{"value":"","type":...}`
+      // — the most common empty-secret shape. Treat its empty `.value` as
+      // absent too, matching the direct/raw-blob empty checks above, so
+      // loadCredentials throws loudly instead of building a credential-less
+      // adapter. Inspector Brad finding, sweep 3.
+      const value = (parsed as { value: string }).value;
+      return value === "" ? undefined : value;
     }
     return blob;
   } catch {
