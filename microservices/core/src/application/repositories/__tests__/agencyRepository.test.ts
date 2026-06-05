@@ -113,6 +113,32 @@ describe("AgencyRepository", () => {
     });
   });
 
+  // ── listAll ───────────────────────────────────────────────────────────────
+
+  describe("listAll", () => {
+    it("returns every agency", async () => {
+      const second = { ...mockAgencyRow, id: "agency-uuid-2" };
+      (mockDb.select as ReturnType<typeof vi.fn>).mockReturnValue(
+        mockChain([mockAgencyRow, second]),
+      );
+
+      const agencies = await repo.listAll();
+      expect(agencies).toHaveLength(2);
+      expect(agencies.map((a) => a.id)).toEqual([
+        "agency-uuid-1",
+        "agency-uuid-2",
+      ]);
+    });
+
+    it("returns an empty array when there are no agencies", async () => {
+      (mockDb.select as ReturnType<typeof vi.fn>).mockReturnValue(
+        mockChain([]),
+      );
+      const agencies = await repo.listAll();
+      expect(agencies).toEqual([]);
+    });
+  });
+
   // ── getRequiredFields ───────────────────────────────────────────────────────
 
   describe("getRequiredFields", () => {

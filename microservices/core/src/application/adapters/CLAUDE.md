@@ -54,6 +54,16 @@ the existing adapters wouldn't have. A convention test in CI fails the
 build if a new adapter constructor in `crm/` or `booking/` isn't in
 its sibling contract list.
 
+> **Not yet enforced (as of Block C).** The parameterised suites and the
+> glob/convention test that fails the build on an unregistered adapter
+> are a **Block E** deliverable — they do not exist yet. Block C ships
+> the registry seam (`registerCrmAdapter` / `registerSlotSourceAdapter`)
+> and the runtime `UnknownAdapterKindError` (caught by warm-up only for
+> kinds an agency is _configured_ to use). Until Block E lands, do NOT
+> assume CI will catch a missing contract-list registration — an adapter
+> authored but not yet pointed at by any `agency_integrations` row will
+> pass green.
+
 The contract tests aren't a replacement for adapter-specific tests —
 real adapters still get their own unit tests for provider-specific
 quirks (auth, pagination, error mapping). The contract suite locks
@@ -73,7 +83,9 @@ doesn't waste backoff time on them.
 - Spec: `.kiro/specs/02-crm-and-booking-adapters/`
 - Ports: `crm/crmAdapter.ts`, `booking/slotSourceAdapter.ts`
 - Errors: `integrationError.ts`
-- Registry (Block C): `registry.ts` _(not in this PR)_
-- Retry helper (Block C): `retry.ts` _(not in this PR)_
-- Reference adapters (Block D): `crm/{noop,csvExport,mock}.ts`, `booking/{mock,googleCalendar}.ts` _(not in this PR)_
+- Registry (Block C): `registry.ts` — `getCrmAdapter` / `getSlotSourceAdapter`, kind→factory map, 10s config cache
+- Retry helper (Block C): `retry.ts` — `retryIntegrationCall`, 1s/5s/30s backoff, never throws out of the caller
+- Credential loader (Block C): `credentials.ts` — resolves an adapter's SST secret by name
+- Cold-start warm-up (Block C): `warmup.ts` — resolves every agency's adapters on init, alerts on unknown kinds
+- Reference adapters (Block D): `crm/{noop,csvExport,mock}.ts`, `booking/{mock,googleCalendar}.ts` _(not in this PR — each must `registerCrmAdapter` / `registerSlotSourceAdapter` at import time)_
 - Contract suites (Block E): `__tests__/{crm,slotSource}AdapterContract.test.ts` _(not in this PR)_

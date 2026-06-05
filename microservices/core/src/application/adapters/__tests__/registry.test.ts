@@ -1,0 +1,282 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type { AgencyIntegrationsRow, Db } from "@lettingsops/db";
+import {
+  getCrmAdapter,
+  getSlotSourceAdapter,
+  registerCrmAdapter,
+  registerSlotSourceAdapter,
+  clearRegisteredAdapters,
+  invalidateAgencyIntegrationsCache,
+  UnknownAdapterKindError,
+  CONFIG_CACHE_TTL_MS,
+  type AdapterFactoryContext,
+} from "../registry";
+import { AgencyIntegrationsRepository } from "../../repositories/agencyIntegrationsRepository";
+import { setSecretReader } from "../credentials";
+import type { CrmAdapter } from "../crm/crmAdapter";
+import type { SlotSourceAdapter } from "../booking/slotSourceAdapter";
+
+const AGENCY = "agency-1";
+
+function fakeCrm(kind: string): CrmAdapter {
+  return {
+    kind,
+    pushLead: vi.fn(async () => ({ externalId: "x" })),
+    updateLeadStatus: vi.fn(async () => {}),
+    pushQualification: vi.fn(async () => {}),
+    pushViewing: vi.fn(async () => ({ externalId: "x" })),
+  };
+}
+
+function fakeSlot(kind: string): SlotSourceAdapter {
+  return {
+    kind,
+    getAvailableSlots: vi.fn(async () => []),
+    bookSlot: vi.fn(async () => ({
+      externalEventId: "e",
+      confirmedAt: "2026-06-02T00:00:00.000Z",
+    })),
+    cancelSlot: vi.fn(async () => {}),
+  };
+}
+
+function configRow(
+  over: Partial<AgencyIntegrationsRow>,
+): AgencyIntegrationsRow {
+  return {
+    id: "cfg-1",
+    agencyId: AGENCY,
+    crmAdapterKind: "noop",
+    crmCredentialsSecret: null,
+    slotAdapterKind: "mock",
+    slotCredentialsSecret: null,
+    slotGranularityMinutes: 30,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...over,
+  } as AgencyIntegrationsRow;
+}
+
+// NOTE: the registry's factory Maps, config cache, and generation counter
+// are module-level globals. These tests reset them in `beforeEach`; cross-
+// FILE isolation relies on vitest's default per-file worker isolation. If
+// the repo ever sets `isolate: false` / a single-thread pool for speed,
+// this file and warmup.test.ts would leak state into each other — add an
+// explicit reset/afterAll guard then.
+describe("adapter registry", () => {
+  beforeEach(() => {
+    clearRegisteredAdapters();
+    invalidateAgencyIntegrationsCache();
+    setSecretReader(null);
+    // Defaults Block D will register; the registry treats null config as
+    // noop/mock, so both must be present for the default path to resolve.
+    registerCrmAdapter("noop", () => fakeCrm("noop"));
+    registerCrmAdapter("mock", () => fakeCrm("mock"));
+    registerSlotSourceAdapter("mock", () => fakeSlot("mock"));
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    setSecretReader(null);
+  });
+
+  describe("getCrmAdapter", () => {
+    it("falls back to the noop default when no config row exists", async () => {
+      vi.spyOn(
+        AgencyIntegrationsRepository.prototype,
+        "findForAgency",
+      ).mockResolvedValue(null);
+
+      const adapter = await getCrmAdapter(AGENCY);
+      expect(adapter.kind).toBe("noop");
+    });
+
+    it("constructs the configured kind and passes config + null creds", async () => {
+      const ctxSeen: AdapterFactoryContext[] = [];
+      registerCrmAdapter("mock", (ctx) => {
+        ctxSeen.push(ctx);
+        return fakeCrm("mock");
+      });
+      const cfg = configRow({ crmAdapterKind: "mock" });
+      vi.spyOn(
+        AgencyIntegrationsRepository.prototype,
+        "findForAgency",
+      ).mockResolvedValue(cfg);
+
+      const adapter = await getCrmAdapter(AGENCY);
+      expect(adapter.kind).toBe("mock");
+      expect(ctxSeen[0]).toEqual({
+        agencyId: AGENCY,
+        config: cfg,
+        credentials: null,
+      });
+    });
+
+    it("resolves credentials from the configured secret", async () => {
+      setSecretReader(() => JSON.stringify({ bucket: "b1" }));
+      const ctxSeen: AdapterFactoryContext[] = [];
+      registerCrmAdapter("csv_export", (ctx) => {
+        ctxSeen.push(ctx);
+        return fakeCrm("csv_export");
+      });
+      vi.spyOn(
+        AgencyIntegrationsRepository.prototype,
+        "findForAgency",
+      ).mockResolvedValue(
+        configRow({
+          crmAdapterKind: "csv_export",
+          crmCredentialsSecret: "SomeSecret",
+        }),
+      );
+
+      await getCrmAdapter(AGENCY);
+      expect(ctxSeen[0]?.credentials).toEqual({ bucket: "b1" });
+    });
+
+    it("threads the resolved db handle into the factory context", async () => {
+      // So a Block D adapter (e.g. GoogleCalendar resolving
+      // estate_agents.calendarId) can read other tables without importing
+      // getDb() itself.
+      const fakeDb = {} as unknown as Db;
+      const ctxSeen: AdapterFactoryContext[] = [];
+      registerCrmAdapter("mock", (ctx) => {
+        ctxSeen.push(ctx);
+        return fakeCrm("mock");
+      });
+      vi.spyOn(
+        AgencyIntegrationsRepository.prototype,
+        "findForAgency",
+      ).mockResolvedValue(configRow({ crmAdapterKind: "mock" }));
+
+      await getCrmAdapter(AGENCY, { db: fakeDb });
+      expect(ctxSeen[0]?.db).toBe(fakeDb);
+    });
+
+    it("throws UnknownAdapterKindError for an unregistered kind", async () => {
+      vi.spyOn(
+        AgencyIntegrationsRepository.prototype,
+        "findForAgency",
+      ).mockResolvedValue(configRow({ crmAdapterKind: "reapit" }));
+
+      await expect(getCrmAdapter(AGENCY)).rejects.toBeInstanceOf(
+        UnknownAdapterKindError,
+      );
+      await expect(getCrmAdapter(AGENCY)).rejects.toMatchObject({
+        port: "crm",
+        kind: "reapit",
+        agencyId: AGENCY,
+      });
+    });
+  });
+
+  describe("getSlotSourceAdapter", () => {
+    it("falls back to the mock default when no config row exists", async () => {
+      vi.spyOn(
+        AgencyIntegrationsRepository.prototype,
+        "findForAgency",
+      ).mockResolvedValue(null);
+
+      const adapter = await getSlotSourceAdapter(AGENCY);
+      expect(adapter.kind).toBe("mock");
+    });
+
+    it("throws UnknownAdapterKindError for an unregistered slot kind", async () => {
+      vi.spyOn(
+        AgencyIntegrationsRepository.prototype,
+        "findForAgency",
+      ).mockResolvedValue(configRow({ slotAdapterKind: "outlook_365" }));
+
+      await expect(getSlotSourceAdapter(AGENCY)).rejects.toMatchObject({
+        port: "slot",
+        kind: "outlook_365",
+      });
+    });
+  });
+
+  describe("config cache (10s TTL)", () => {
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+
+    it("hits the DB once within the TTL window", async () => {
+      const spy = vi
+        .spyOn(AgencyIntegrationsRepository.prototype, "findForAgency")
+        .mockResolvedValue(null);
+
+      await getCrmAdapter(AGENCY);
+      await getCrmAdapter(AGENCY);
+      await getSlotSourceAdapter(AGENCY);
+      expect(spy).toHaveBeenCalledTimes(1);
+    });
+
+    it("reloads after the TTL expires", async () => {
+      const spy = vi
+        .spyOn(AgencyIntegrationsRepository.prototype, "findForAgency")
+        .mockResolvedValue(null);
+
+      await getCrmAdapter(AGENCY);
+      vi.advanceTimersByTime(CONFIG_CACHE_TTL_MS + 1);
+      await getCrmAdapter(AGENCY);
+      expect(spy).toHaveBeenCalledTimes(2);
+    });
+
+    it("reloads immediately after invalidation", async () => {
+      const spy = vi
+        .spyOn(AgencyIntegrationsRepository.prototype, "findForAgency")
+        .mockResolvedValue(null);
+
+      await getCrmAdapter(AGENCY);
+      invalidateAgencyIntegrationsCache(AGENCY);
+      await getCrmAdapter(AGENCY);
+      expect(spy).toHaveBeenCalledTimes(2);
+    });
+
+    it("keeps separate cache entries per agency", async () => {
+      const spy = vi
+        .spyOn(AgencyIntegrationsRepository.prototype, "findForAgency")
+        .mockResolvedValue(null);
+
+      await getCrmAdapter("agency-a");
+      await getCrmAdapter("agency-b");
+      expect(spy).toHaveBeenCalledTimes(2);
+    });
+
+    it("dedups concurrent cache-miss reads into a single DB round-trip", async () => {
+      let resolveRead: (v: AgencyIntegrationsRow | null) => void = () => {};
+      const deferred = new Promise<AgencyIntegrationsRow | null>((res) => {
+        resolveRead = res;
+      });
+      const spy = vi
+        .spyOn(AgencyIntegrationsRepository.prototype, "findForAgency")
+        .mockReturnValue(deferred);
+
+      // Both fire before the read resolves → the second must share the
+      // first's in-flight promise rather than issue its own query.
+      const p1 = getCrmAdapter(AGENCY);
+      const p2 = getCrmAdapter(AGENCY);
+      resolveRead(null);
+      await Promise.all([p1, p2]);
+
+      expect(spy).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not cache a read that an invalidation raced (generation guard)", async () => {
+      let resolveRead: (v: AgencyIntegrationsRow | null) => void = () => {};
+      const deferred = new Promise<AgencyIntegrationsRow | null>((res) => {
+        resolveRead = res;
+      });
+      const spy = vi
+        .spyOn(AgencyIntegrationsRepository.prototype, "findForAgency")
+        .mockReturnValueOnce(deferred)
+        .mockResolvedValue(null);
+
+      const p1 = getCrmAdapter(AGENCY); // in-flight read at generation G
+      invalidateAgencyIntegrationsCache(AGENCY); // bumps generation mid-flight
+      resolveRead(null); // completes — must NOT populate the cache
+      await p1;
+
+      // Cache was not populated, so the next call hits the DB again.
+      await getCrmAdapter(AGENCY);
+      expect(spy).toHaveBeenCalledTimes(2);
+    });
+  });
+});
