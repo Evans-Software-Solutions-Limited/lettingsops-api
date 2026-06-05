@@ -54,6 +54,16 @@ the existing adapters wouldn't have. A convention test in CI fails the
 build if a new adapter constructor in `crm/` or `booking/` isn't in
 its sibling contract list.
 
+> **Not yet enforced (as of Block C).** The parameterised suites and the
+> glob/convention test that fails the build on an unregistered adapter
+> are a **Block E** deliverable — they do not exist yet. Block C ships
+> the registry seam (`registerCrmAdapter` / `registerSlotSourceAdapter`)
+> and the runtime `UnknownAdapterKindError` (caught by warm-up only for
+> kinds an agency is _configured_ to use). Until Block E lands, do NOT
+> assume CI will catch a missing contract-list registration — an adapter
+> authored but not yet pointed at by any `agency_integrations` row will
+> pass green.
+
 The contract tests aren't a replacement for adapter-specific tests —
 real adapters still get their own unit tests for provider-specific
 quirks (auth, pagination, error mapping). The contract suite locks

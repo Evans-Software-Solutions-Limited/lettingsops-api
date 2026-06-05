@@ -88,6 +88,16 @@ export interface AdapterFactoryContext {
   config: AgencyIntegrationsRow | null;
   /** Resolved secret payload, or `null` when the adapter needs none. */
   credentials: unknown;
+  /**
+   * The DB handle the registry resolved config with (the injected one in
+   * tests/warm-up, else `undefined` → the adapter falls back to ambient
+   * `getDb()`, the same convention repositories use). Threaded so an
+   * adapter that must read OTHER tables at request time can do so without
+   * importing `getDb()` itself — e.g. the design's GoogleCalendar adapter
+   * (§3.4) resolving `estate_agents.calendarId`. Most adapters
+   * (noop / mock / csv_export) ignore it.
+   */
+  db?: Db;
 }
 
 export type CrmAdapterFactory = (ctx: AdapterFactoryContext) => CrmAdapter;
@@ -219,7 +229,7 @@ export async function getCrmAdapter(
     throw new UnknownAdapterKindError("crm", kind, agencyId);
   }
   const credentials = loadCredentials(config?.crmCredentialsSecret);
-  return factory({ agencyId, config, credentials });
+  return factory({ agencyId, config, credentials, db: opts.db });
 }
 
 export async function getSlotSourceAdapter(
@@ -233,5 +243,5 @@ export async function getSlotSourceAdapter(
     throw new UnknownAdapterKindError("slot", kind, agencyId);
   }
   const credentials = loadCredentials(config?.slotCredentialsSecret);
-  return factory({ agencyId, config, credentials });
+  return factory({ agencyId, config, credentials, db: opts.db });
 }

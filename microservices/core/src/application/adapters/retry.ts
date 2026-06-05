@@ -79,9 +79,13 @@ export const MAX_ATTEMPTS = BACKOFF_MS.length + 1;
 
 export interface RetryContext {
   /**
-   * Tenant-scoped audit repository. Construct it for the acting agency
-   * (`new IntegrationEventsRepository(db, agencyId)`) — the retry helper
-   * is agency-agnostic and trusts the repo's scope.
+   * Tenant-scoped audit repository. The CALLER constructs it for the
+   * acting agency (`new IntegrationEventsRepository(db, agencyId)`) — this
+   * is intentional: the helper is agency-agnostic and trusts the repo's
+   * scope, so Block F hook points own repo construction rather than the
+   * helper inventing a second convention. A future SQS re-driver (§2.4)
+   * reconstructs scope from the persisted `integration_events` row, not
+   * from this `ctx`, so there's deliberately no `agencyId`/`db` here.
    */
   events: IntegrationEventsRepository;
   /** Entity this call acts on (leadId / viewingId), stored on the event row. */

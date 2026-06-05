@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type { AgencyIntegrationsRow } from "@lettingsops/db";
+import type { AgencyIntegrationsRow, Db } from "@lettingsops/db";
 import {
   getCrmAdapter,
   getSlotSourceAdapter,
@@ -57,6 +57,12 @@ function configRow(
   } as AgencyIntegrationsRow;
 }
 
+// NOTE: the registry's factory Maps, config cache, and generation counter
+// are module-level globals. These tests reset them in `beforeEach`; cross-
+// FILE isolation relies on vitest's default per-file worker isolation. If
+// the repo ever sets `isolate: false` / a single-thread pool for speed,
+// this file and warmup.test.ts would leak state into each other — add an
+// explicit reset/afterAll guard then.
 describe("adapter registry", () => {
   beforeEach(() => {
     clearRegisteredAdapters();
@@ -125,6 +131,25 @@ describe("adapter registry", () => {
 
       await getCrmAdapter(AGENCY);
       expect(ctxSeen[0]?.credentials).toEqual({ bucket: "b1" });
+    });
+
+    it("threads the resolved db handle into the factory context", async () => {
+      // So a Block D adapter (e.g. GoogleCalendar resolving
+      // estate_agents.calendarId) can read other tables without importing
+      // getDb() itself.
+      const fakeDb = {} as unknown as Db;
+      const ctxSeen: AdapterFactoryContext[] = [];
+      registerCrmAdapter("mock", (ctx) => {
+        ctxSeen.push(ctx);
+        return fakeCrm("mock");
+      });
+      vi.spyOn(
+        AgencyIntegrationsRepository.prototype,
+        "findForAgency",
+      ).mockResolvedValue(configRow({ crmAdapterKind: "mock" }));
+
+      await getCrmAdapter(AGENCY, { db: fakeDb });
+      expect(ctxSeen[0]?.db).toBe(fakeDb);
     });
 
     it("throws UnknownAdapterKindError for an unregistered kind", async () => {
