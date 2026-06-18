@@ -1,7 +1,12 @@
 import { useNavigate } from "react-router";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { IconArrowLeft, IconMail, IconPhone } from "@tabler/icons-react";
+import {
+  IconArrowLeft,
+  IconMail,
+  IconPhone,
+  IconMessageCircle,
+} from "@tabler/icons-react";
 
 interface CommunicationLog {
   id: string;
@@ -36,11 +41,11 @@ interface LeadDetailProps {
 
 const STATUS_STYLES: Record<string, string> = {
   NEW: "bg-muted text-muted-foreground",
-  CONTACTED: "bg-blue-900/60 text-blue-300",
-  QUALIFYING: "bg-amber-900/60 text-amber-300",
-  QUALIFIED: "bg-teal-900/60 text-teal-300",
-  VIEWING_BOOKED: "bg-emerald-900/60 text-emerald-300",
-  CONVERTED: "bg-green-900/60 text-green-300",
+  CONTACTED: "bg-blue-900/40 text-blue-300",
+  QUALIFYING: "bg-amber-900/40 text-amber-300",
+  QUALIFIED: "bg-teal-900/40 text-teal-300",
+  VIEWING_BOOKED: "bg-emerald-900/40 text-emerald-300",
+  CONVERTED: "bg-green-900/40 text-green-300",
   ARCHIVED: "bg-muted text-muted-foreground",
 };
 
@@ -53,7 +58,9 @@ function Field({
 }) {
   return (
     <div>
-      <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
+      <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider mb-1">
+        {label}
+      </p>
       <p className="text-sm text-foreground">{value ?? "—"}</p>
     </div>
   );
@@ -80,6 +87,35 @@ function getSourceIcon(source: string) {
   }
 }
 
+function SkeletonDetail() {
+  return (
+    <div className="space-y-6">
+      <div className="skeleton h-8 w-16 rounded" />
+      <div className="grid grid-cols-3 gap-6">
+        <div className="col-span-1 space-y-6">
+          <div className="skeleton h-6 w-40 rounded" />
+          <div className="skeleton h-4 w-32 rounded" />
+          <Card className="bg-card border-border p-5">
+            <div className="space-y-4">
+              <div className="skeleton h-4 w-24 rounded" />
+              <div className="skeleton h-4 w-32 rounded" />
+              <div className="skeleton h-4 w-20 rounded" />
+              <div className="skeleton h-4 w-28 rounded" />
+            </div>
+          </Card>
+        </div>
+        <div className="col-span-2">
+          <div className="skeleton h-6 w-48 rounded mb-4" />
+          <div className="space-y-3">
+            <div className="skeleton h-24 w-full rounded" />
+            <div className="skeleton h-24 w-full rounded" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function LeadDetail({
   lead,
   communications,
@@ -89,17 +125,22 @@ export function LeadDetail({
   const navigate = useNavigate();
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
-        Loading lead...
-      </div>
-    );
+    return <SkeletonDetail />;
   }
 
   if (!lead) {
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
-        Lead not found.
+      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+        <p className="text-sm font-medium">Lead not found</p>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="mt-3 gap-1.5"
+          onClick={() => navigate(-1)}
+        >
+          <IconArrowLeft size={16} />
+          Go back
+        </Button>
       </div>
     );
   }
@@ -111,7 +152,7 @@ export function LeadDetail({
         variant="ghost"
         size="sm"
         onClick={() => navigate(-1)}
-        className="gap-2 text-muted-foreground hover:text-foreground -ml-2"
+        className="gap-1.5 text-muted-foreground hover:text-foreground -ml-2 h-8"
       >
         <IconArrowLeft size={16} />
         Back
@@ -119,7 +160,7 @@ export function LeadDetail({
 
       <div className="grid grid-cols-3 gap-6">
         {/* Left Column - Contact Info */}
-        <div className="col-span-1 space-y-6">
+        <div className="col-span-1 space-y-5">
           {/* Header */}
           <div>
             <h1 className="text-xl font-semibold text-foreground">
@@ -130,7 +171,9 @@ export function LeadDetail({
 
           {/* Status Badge */}
           <div>
-            <p className="text-xs text-muted-foreground mb-2">Status</p>
+            <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider mb-1.5">
+              Status
+            </p>
             <span
               className={[
                 "inline-flex items-center px-2.5 py-1 rounded text-xs font-medium",
@@ -143,7 +186,7 @@ export function LeadDetail({
 
           {/* Details Card */}
           <Card className="bg-card border-border p-5">
-            <div className="space-y-4">
+            <div className="space-y-3.5">
               <Field label="Phone" value={lead.phone} />
               <Field label="Property Ref" value={lead.propertyRef} />
               <Field label="Source" value={lead.source} />
@@ -164,17 +207,27 @@ export function LeadDetail({
         {/* Right Column - Communication Timeline */}
         <div className="col-span-2">
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-foreground">
+            <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">
               Communication Timeline
             </h2>
 
             {isLoadingCommunication ? (
-              <div className="text-center text-muted-foreground text-sm py-8">
-                Loading communications...
+              <div className="space-y-3">
+                <div className="skeleton h-24 w-full rounded-lg" />
+                <div className="skeleton h-24 w-full rounded-lg" />
+                <div className="skeleton h-16 w-full rounded-lg" />
               </div>
             ) : communications.length === 0 ? (
-              <div className="text-center text-muted-foreground text-sm py-8">
-                No communications yet.
+              <div className="flex flex-col items-center gap-3 py-12 text-muted-foreground">
+                <div className="p-3 rounded-full bg-secondary">
+                  <IconMessageCircle size={24} stroke={1.5} />
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-medium">No communications yet</p>
+                  <p className="text-xs mt-0.5">
+                    Communications will appear here once received
+                  </p>
+                </div>
               </div>
             ) : (
               <div className="space-y-3">
@@ -196,23 +249,21 @@ export function LeadDetail({
                             </>
                           )}
                         </div>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-[11px] text-muted-foreground tabular-nums">
                           {formatDate(comm.receivedAt)}
                         </span>
                       </div>
 
                       {/* Subject (for emails) */}
                       {comm.subject && (
-                        <div>
-                          <p className="text-sm font-medium text-foreground">
-                            {comm.subject}
-                          </p>
-                        </div>
+                        <p className="text-sm font-medium text-foreground">
+                          {comm.subject}
+                        </p>
                       )}
 
                       {/* Body (for emails) */}
                       {comm.body && (
-                        <div className="bg-muted/30 p-3 rounded text-sm text-foreground whitespace-pre-wrap max-h-40 overflow-y-auto">
+                        <div className="bg-muted/30 p-3 rounded-lg text-sm text-foreground whitespace-pre-wrap max-h-40 overflow-y-auto leading-relaxed">
                           {comm.body}
                         </div>
                       )}
@@ -224,16 +275,16 @@ export function LeadDetail({
                             <div
                               key={idx}
                               className={[
-                                "px-3 py-2 rounded text-sm",
+                                "px-3 py-2 rounded-lg text-sm",
                                 msg.role === "agent"
-                                  ? "bg-blue-900/30 text-blue-300"
-                                  : "bg-amber-900/30 text-amber-300",
+                                  ? "bg-blue-900/20 text-blue-300"
+                                  : "bg-amber-900/20 text-amber-300",
                               ].join(" ")}
                             >
-                              <p className="font-medium text-xs mb-1 opacity-75">
+                              <p className="font-medium text-[11px] mb-1 opacity-70 uppercase tracking-wider">
                                 {msg.role === "agent" ? "Agent" : "Caller"}
                               </p>
-                              <p>{msg.message}</p>
+                              <p className="leading-relaxed">{msg.message}</p>
                             </div>
                           ))}
                         </div>

@@ -37,11 +37,13 @@ describe("DashboardStats", () => {
     expect(oneElements.length).toBeGreaterThan(0);
   });
 
-  it('shows "—" for all values when isLoading=true', () => {
-    render(<DashboardStats total={0} byStatus={{}} isLoading={true} />);
+  it("shows skeleton loaders for all values when isLoading=true", () => {
+    const { container } = render(
+      <DashboardStats total={0} byStatus={{}} isLoading={true} />,
+    );
 
-    const emDashes = screen.getAllByText("—");
-    expect(emDashes.length).toBe(7); // Total 7 stat cards
+    const skeletons = container.querySelectorAll(".skeleton");
+    expect(skeletons.length).toBe(7); // Total 7 stat cards
   });
 
   it("renders correct count for each status key", () => {

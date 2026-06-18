@@ -17,8 +17,8 @@ describe("LeadDetail", () => {
     updatedAt: "2024-01-02T00:00:00Z",
   };
 
-  it('shows "Loading lead..." when isLoading=true', () => {
-    render(
+  it("shows skeleton loaders when isLoading=true", () => {
+    const { container } = render(
       <MemoryRouter>
         <LeadDetail
           lead={null}
@@ -29,10 +29,11 @@ describe("LeadDetail", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("Loading lead...")).toBeDefined();
+    const skeletons = container.querySelectorAll(".skeleton");
+    expect(skeletons.length).toBeGreaterThan(0);
   });
 
-  it('shows "Lead not found." when lead=null and not loading', () => {
+  it('shows "Lead not found" when lead=null and not loading', () => {
     render(
       <MemoryRouter>
         <LeadDetail
@@ -44,7 +45,7 @@ describe("LeadDetail", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("Lead not found.")).toBeDefined();
+    expect(screen.getByText("Lead not found")).toBeDefined();
   });
 
   it("renders lead name, email, status badge when lead is provided", () => {

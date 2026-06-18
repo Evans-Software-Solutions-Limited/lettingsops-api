@@ -12,7 +12,11 @@ const statConfig = [
   { key: "CONTACTED", label: "Contacted", color: "text-blue-400" },
   { key: "QUALIFYING", label: "Qualifying", color: "text-amber-400" },
   { key: "QUALIFIED", label: "Qualified", color: "text-primary" },
-  { key: "VIEWING_BOOKED", label: "Viewing Booked", color: "text-emerald-400" },
+  {
+    key: "VIEWING_BOOKED",
+    label: "Viewing Booked",
+    color: "text-emerald-400",
+  },
   { key: "CONVERTED", label: "Converted", color: "text-green-400" },
 ] as const;
 
@@ -30,10 +34,16 @@ export function DashboardStats({
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
       {statConfig.map(({ key, label, color }) => (
         <Card key={key} className="p-4 bg-card border-border">
-          <p className="text-xs text-muted-foreground mb-1">{label}</p>
-          <p className={`text-2xl font-semibold ${color}`}>
-            {isLoading ? "—" : getValue(key)}
+          <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider mb-1.5">
+            {label}
           </p>
+          {isLoading ? (
+            <div className="skeleton h-7 w-10 rounded" />
+          ) : (
+            <p className={`text-2xl font-semibold tabular-nums ${color}`}>
+              {getValue(key)}
+            </p>
+          )}
         </Card>
       ))}
     </div>
